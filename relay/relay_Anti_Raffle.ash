@@ -37,12 +37,20 @@ void main() {
 	out.append("<div id='ar-note'></div>\n");
 
 	out.append("<div class='ar-panel' id='ar-panel-tickets'>\n");
-	out.append("<div class='ar-search'>");
-	out.append("<input type='text' id='ar-q' autocomplete='off' spellcheck='false'"
-		+ " placeholder='Find an item to use as a ticket'>");
-	out.append("<button class='ar-go' id='ar-defaults'>Default items</button>");
+	// The shipped list first, because it is the thing to press when the list
+	// is empty and there is nothing else on the tab to do.
+	out.append("<div class='ar-row'>");
+	out.append("<button class='ar-go' id='ar-defaults'>Use default item list</button>");
 	out.append("</div>\n");
-	out.append("<div id='ar-found'></div>\n");
+
+	// A dropdown of what you hold rather than a box you type a name into: the
+	// old box answered with a table that looked exactly like the list of
+	// tickets below it, so the page showed you two tables and left you to work
+	// out which one you were reading.
+	out.append("<div class='ar-row'>");
+	out.append("<select id='ar-held'></select>");
+	out.append("<button class='ar-go' id='ar-add'>Add</button>");
+	out.append("</div>\n");
 	out.append("<div id='ar-chosen'></div>\n");
 	out.append("</div>\n");
 

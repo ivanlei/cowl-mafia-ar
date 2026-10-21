@@ -15,9 +15,11 @@ getting them into the store and parked, and reading back what sold.
 
 ## What it does
 
-**Tickets.** Choose the items you use as tickets. The page searches every item
-KoLmafia knows by name; the gCLI takes a name or an id. They are kept as item
-ids, so a rename or a comma in a name cannot break the list.
+**Tickets.** Choose the items you use as tickets, from a dropdown of what you
+hold — everything in your inventory, closet, display case and Hagnk's, with
+how many and where, and anything untradeable flagged. The gCLI's `ar add`
+takes any item by name or id, held or not. They are kept as item ids, so a
+rename or a comma in a name cannot break the list.
 
 **Default items** on that tab, or `ar defaultitems`, fills the list with **72
 items** that make reasonable tickets — all tradeable, all worth more than the

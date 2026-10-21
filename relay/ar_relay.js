@@ -19,15 +19,13 @@
 (function () {
 	'use strict';
 
-	var SEARCH_WAIT = 250;     // ms of quiet before a search goes out
-	var SEARCH_MIN = 3;        // ar_items.ash refuses shorter, so don't ask
-
 	var state = {
 		settings: null,
 		items: [],
 		sales: [],
 		buyers: [],
 		names: [],
+		held: [],
 		filterItem: '',
 		filterBuyer: '',
 		// Newest first, which is the order the store log arrives in and the
@@ -193,6 +191,7 @@
 					state.items = answer.items;
 					state.settings = answer.settings;
 					drawChosen();
+					loadHeld();
 					say(row.name + ' is no longer a ticket.', 'done');
 				});
 			};
@@ -205,84 +204,45 @@
 		where.appendChild(t);
 	}
 
-	function drawFound(answer) {
-		var where = document.getElementById('ar-found');
-		where.textContent = '';
+	// What you hold, for the dropdown. Rebuilt after every add, because an
+	// item that is now a ticket is no longer one to offer.
+	function drawHeld() {
+		var select = document.getElementById('ar-held');
+		var add = document.getElementById('ar-add');
+		select.textContent = '';
 
-		if (!answer.found.length) {
-			where.appendChild(el('p', 'ar-dim', 'Nothing matches that.'));
+		if (!state.held.length) {
+			var none = el('option', null,
+				'Nothing to hand in inventory, closet, display case or Hagnk\u2019s');
+			none.value = '';
+			select.appendChild(none);
+			select.disabled = true;
+			add.disabled = true;
 			return;
 		}
 
-		if (answer.total > answer.shown) {
-			where.appendChild(el('p', 'ar-dim',
-				'Showing ' + answer.shown + ' of ' + answer.total + '. Type more to narrow it.'));
-		}
+		select.disabled = false;
+		add.disabled = false;
 
-		var t = table([
-			{ text: '' }, { text: 'Item' }, { text: 'Min', num: true }, { text: '' }
-		]);
-
-		answer.found.forEach(function (found) {
-			var tr = el('tr');
-			tr.appendChild(el('td')).appendChild(icon(found.image));
-
-			var name = el('td');
-			name.appendChild(el('span', null, found.name));
-			name.appendChild(document.createTextNode(' '));
-			name.appendChild(el('span', 'ar-id', '[id:' + found.id + ']'));
-			if (!found.tradeable) {
-				name.appendChild(document.createTextNode(' '));
-				name.appendChild(el('span', 'ar-shut', 'not tradeable'));
-			}
-			tr.appendChild(name);
-
-			cell(tr, meat(found.minPrice), 'num');
-
-			var act = el('td');
-			if (found.chosen) {
-				act.appendChild(el('span', 'ar-dim', 'chosen'));
-			} else {
-				var add = el('button', 'ar-go', 'Use as ticket');
-				add.onclick = function () {
-					say('Adding ' + found.name + '…', 'busy');
-					ask('/ar_items.ash', { add: found.id }, function (got) {
-						state.items = got.items;
-						state.settings = got.settings;
-						found.chosen = true;
-						add.parentNode.textContent = 'chosen';
-						add.parentNode.className = 'ar-dim';
-						drawChosen();
-						say(found.name + ' is now a ticket.', 'done');
-					});
-				};
-				act.appendChild(add);
-			}
-			tr.appendChild(act);
-
-			t.appendChild(tr);
+		// localeCompare, so an accent sorts where you would look for it:
+		// Pok\u00e9-Gro belongs with the P's and not after Z.
+		state.held.slice().sort(function (a, b) {
+			return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+		}).forEach(function (item) {
+			var label = item.name + ' \u2014 ' + item.have + ' in ' + item.places;
+			if (!item.tradeable) label += ' (not tradeable)';
+			var option = el('option', null, label);
+			option.value = item.id;
+			select.appendChild(option);
 		});
-
-		where.appendChild(t);
 	}
 
-	var searchTimer = null;
-
-	function searchSoon() {
-		if (searchTimer) clearTimeout(searchTimer);
-		searchTimer = setTimeout(function () {
-			searchTimer = null;
-			var q = document.getElementById('ar-q').value;
-			if (q.replace(/^\s+|\s+$/g, '').length < SEARCH_MIN) {
-				document.getElementById('ar-found').textContent = '';
-				return;
-			}
-			say('Searching…', 'busy');
-			ask('/ar_items.ash', { q: q }, function (answer) {
-				say('');
-				drawFound(answer);
-			});
-		}, SEARCH_WAIT);
+	function loadHeld(then) {
+		ask('/ar_items.ash', { have: 1 }, function (answer) {
+			state.held = answer.held;
+			drawHeld();
+			if (then) then();
+		});
 	}
 
 	// --- Settings ---------------------------------------------------------
@@ -643,6 +603,10 @@
 			state.loaded.stock = true;
 			loadStock();
 		}
+		if (which === 'tickets' && !state.loaded.held) {
+			state.loaded.held = true;
+			loadHeld();
+		}
 	}
 
 	function start() {
@@ -651,7 +615,22 @@
 			tabs[i].onclick = function () { show(this.getAttribute('data-tab')); };
 		}
 
-		document.getElementById('ar-q').oninput = searchSoon;
+		document.getElementById('ar-add').onclick = function () {
+			var select = document.getElementById('ar-held');
+			var id = select.value;
+			if (!id) return;
+			var label = select.options[select.selectedIndex].textContent;
+			say('Adding\u2026', 'busy');
+			ask('/ar_items.ash', { add: id }, function (answer) {
+				state.items = answer.items;
+				state.settings = answer.settings;
+				drawChosen();
+				// The dropdown is now one item shorter; asking again is one
+				// request against keeping two lists in step by hand.
+				loadHeld();
+				say(label.split(' \u2014 ')[0] + ' is now a ticket.', 'done');
+			});
+		};
 
 		// Asked first, and in its own words: this throws away whatever you had
 		// chosen, and the page cannot hand it back the way the gCLI does.
@@ -670,6 +649,7 @@
 				drawChosen();
 				drawSettings();
 				drawStock();
+				loadHeld();
 				say(state.items.length + ' tickets from the shipped list.', 'done');
 			});
 		};

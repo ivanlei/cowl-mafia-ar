@@ -259,6 +259,18 @@ int arMinPrice(item it) {
 	return twice > 100 ? twice : 100;
 }
 
+// An item's name to show someone.
+//
+// to_string() on an item whose name another item shares answers
+// "[2325]Staff of Ed" -- KoLmafia disambiguating, since the name alone does
+// not say which one. Everywhere this is shown the id is shown beside it
+// already, so the prefix is a second copy of the answer wearing brackets.
+string arItemName(item it) {
+	string name = it.to_string();
+	matcher m = create_matcher("^\\[\\d+\\](.+)$", name);
+	return m.find() ? m.group(1) : name;
+}
+
 // --- Where restocking may draw from ----------------------------------------
 //
 // Four places, in the order they are drawn from: what is already in hand,
@@ -390,7 +402,7 @@ arRow arRowFor(item it, arLimits l) {
 	arRow r;
 	r.it = it;
 	r.id = it.to_int();
-	r.name = it.to_string();
+	r.name = arItemName(it);
 	r.image = it.image;
 
 	r.inStore = it.shop_amount();

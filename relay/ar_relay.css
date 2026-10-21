@@ -108,48 +108,57 @@ table.ar img.icon { width: 30px; height: 30px; vertical-align: middle; }
 
 /* --- Finding an item ---------------------------------------------------- */
 
-/* The box and the button on one line, wrapping to two when the pane is
- * narrow rather than squeezing the box down to nothing. */
-.ar-search {
-	margin-bottom: 6px;
+/* A control and its button on one line, wrapping to two when the pane is
+ * narrow rather than squeezing the control down to nothing. */
+.ar-row {
+	margin-bottom: 8px;
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px;
 	align-items: center;
 }
 
-#ar-q {
+/* Wide enough for "name -- 12 in inventory, closet" without the native picker
+ * cutting it off, and it still shrinks on a narrow pane. */
+#ar-held {
 	font: inherit;
-	padding: 8px;
+	padding: 7px;
 	flex: 1 1 260px;
-	max-width: 420px;
-	box-sizing: border-box;
+	max-width: 520px;
 	border: 1px solid #999;
 	border-radius: 3px;
+	background: #fff;
 }
 
-#ar-found table.ar { margin-bottom: 12px; }
+#ar-held:disabled { color: #888; }
+
+
 
 /* --- Buttons ------------------------------------------------------------ */
 
+/* One button, on every tab. The Tickets tab used to have a quieter kind, which
+ * read as two sorts of control rather than one page. */
 button.ar-go {
 	font: inherit;
 	padding: 6px 12px;
-	border: 1px solid #999;
+	border: 1px solid #a60;
 	border-radius: 3px;
-	background: #f6f6f6;
+	background: #fff6e8;
+	font-weight: bold;
 	cursor: pointer;
 }
 
-button.ar-go:disabled { color: #999; cursor: default; }
-
-/* Restock is the only control on the page that changes anything, so it does
- * not look like the ones that don't. */
-button.ar-write {
-	border-color: #a60;
-	background: #fff6e8;
-	font-weight: bold;
+button.ar-go:disabled {
+	color: #999;
+	border-color: #ccc;
+	background: #f6f6f6;
+	font-weight: normal;
+	cursor: default;
 }
+
+/* Kept as a hook rather than a look: writingButtons() disables everything
+ * carrying it while a restock is running. */
+button.ar-write { }
 
 /* --- Settings ----------------------------------------------------------- */
 

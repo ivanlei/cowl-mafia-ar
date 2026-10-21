@@ -92,7 +92,7 @@ int arGatherFrom(item it, int wanted, string place, arLimits l, arResult r) {
 arResult arRestockOne(item it, arLimits l) {
 	arResult r;
 	r.it = it;
-	r.name = it.to_string();
+	r.name = arItemName(it);
 	r.changed = false;
 
 	int want = arCount();
