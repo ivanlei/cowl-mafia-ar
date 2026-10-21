@@ -150,5 +150,5 @@ bare 404, so the page simply stops existing and nothing says why.
 
 ## Licence
 
-[Zero-Clause BSD](LICENSE). Do anything you like with it, credit nobody, and
+[BSD Zero Clause](LICENSE). Do anything you like with it, credit nobody, and
 it comes with no warranty of any kind.
