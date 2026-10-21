@@ -94,16 +94,17 @@ Those four are all of them. There is no fifth that buys.
 
 ## Install
 
-KoLmafia installs it itself. The repository is private, so the URL has to carry
-a token — and KoLmafia's gCLI writes every command it runs into the session
-log, so do not type a token into it where that matters to you.
+KoLmafia installs it itself. In the gCLI:
 
 ```
-git checkout https://<token>@github.com/ivanlei/cowl-mafia-ar.git
+git checkout https://github.com/ivanlei/cowl-mafia-ar.git
 ```
 
-`git update` afterwards. KoLmafia installs by folder name — `relay/` and
-`scripts/` — which is why they sit at the top rather than under a `src/`.
+`git update` afterwards, which is also how you get later changes. KoLmafia
+installs by folder name — `relay/` and `scripts/` — which is why they sit at
+the top rather than under a `src/`.
+
+Nothing else is needed: no other script, no library, no build step.
 
 ## Layout
 
@@ -127,15 +128,13 @@ Two things about the layout are load-bearing rather than taste:
 searching the root, `scripts/`, `planting/` and `relay/` and taking the single
 match (`KoLmafiaCLI.findScriptFile`). Two files of the same name anywhere in
 one KoLmafia installation is not a shadowing, it is a hard *too many matches*
-error — and another project installs into these same two folders.
+error — and every other script you have installed shares those two folders.
 
 **The core lives in `scripts/` and is imported from `relay/`.** That same
 search is what lets one copy of the logic serve both the page and the command.
 
 **Nothing here depends on anything outside it.** No import of another project,
-no CDN, no build step. Another project solved some of the same problems first
-and the comments say so where a rule came from there, but not a line of it is
-required for this to run.
+no CDN, no build step. Install it and it runs.
 
 ## Checking a change
 
@@ -148,3 +147,8 @@ for: the JS parses, every `arAsset("x")` has a `relay/x` to serve, and every
 call in an ASH file resolves to something that file or its imports define. That
 last one matters most — a relay `.ash` that will not compile is served as a
 bare 404, so the page simply stops existing and nothing says why.
+
+## Licence
+
+[Zero-Clause BSD](LICENSE). Do anything you like with it, credit nobody, and
+it comes with no warranty of any kind.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What CI checks, and what you can run yourself: python3 .github/check.py
+"""What to run before pushing a change: python3 .github/check.py
 
 Nothing here builds anything - the repository ships what it is, ASH and plain
 relay JS - so these are the three ways a change can break the installed copy
@@ -17,8 +17,8 @@ from pathlib import Path
 
 # Imports expected to come from another installed project rather than from
 # this one. Empty, and meant to stay empty: this repository is self-contained,
-# and an import that resolved to another project would be a dependency on
-# whether that happens to be installed too.
+# and an import that resolved somewhere else would make it depend on whatever
+# else the person happens to have installed.
 EXTERNAL_IMPORTS = set()
 
 # Where KoLmafia resolves an `import <x.ash>` from, among the folders we ship.

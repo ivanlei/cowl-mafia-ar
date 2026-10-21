@@ -13,7 +13,7 @@
 // planting/ and relay/ and takes the one match -- which is also why every file
 // in this repository is "ar"-prefixed. Two files of the same name anywhere in
 // a KoLmafia installation is not a shadowing, it is a hard "too many matches"
-// error, and another project installs into these same two folders.
+// error, and every other script somebody has installed shares those folders.
 //
 // Nothing here writes to the store. The restocking half is ar_restock.ash,
 // kept separate so that reading what you have can never be the thing that
