@@ -65,9 +65,115 @@ string arJoin(string [int] parts, string separator) {
 	return out.to_string();
 }
 
+// --- The list a fresh install starts with ----------------------------------
+//
+// Seventy-two items that make reasonable tickets. Every one of them is
+// tradeable, and every one was worth more than the minimum price it can be
+// sold at when this was written -- checked against KoLmafia's own historical
+// prices, since an item worth more than it sells for is the whole definition
+// of a ticket. They spread across food, drink, one-day passes, the pastes and
+// a few oddities, so a channel seeing several of them in a week sees variety.
+//
+// A starting point and nothing more. Add to it, cut it down to the handful
+// you actually keep in stock, or empty it entirely; nothing ever puts an item
+// back once you have taken it out, and the list below is read only when the
+// preference has never been written.
+//
+// Ids, for the reason the preference stores ids: a name can contain a comma,
+// which is the separator, and KoL renames things. The name beside each is
+// what that id was called when this was written, and is a comment -- nothing
+// reads it.
+string [int] arDefaultTicketIds() {
+	string [int] ids;
+	void add(int id) { ids[count(ids)] = id.to_string(); }
+
+	add(10740);   // battery (AA)
+	add( 6537);   // blood sausage
+	add( 1416);   // blue snowcone
+	add( 1624);   // blue-frosted astral cupcake
+	add( 5232);   // borrowed time
+	add( 5226);   // box of Familiar Jacks
+	add(10056);   // Boxing Day Pass
+	add( 1593);   // cold hi mein
+	add( 9204);   // counterfeit city
+	add(10070);   // Crimboysters Rockefeller
+	add(11738);   // crystallized pumpkin spice
+	add( 5748);   // CSA all-purpose soap
+	add( 8635);   // cuppa Royal tea
+	add( 8634);   // cuppa Sobrie tea
+	add( 8633);   // cuppa Voraci tea
+	add( 2424);   // cyclops eyedrops
+	add( 9479);   // Daily Affirmation: Always be Collecting
+	add( 9485);   // Daily Affirmation: Keep Free Hate in your Heart
+	add(11346);   // day shortener
+	add( 5206);   // demonic paste
+	add( 8822);   // Doc Clock's thyme cocktail
+	add( 6565);   // Dreadsylvanian cold pocket
+	add( 6572);   // Dreadsylvanian dank and stormy
+	add( 6573);   // Dreadsylvanian slithery nipple
+	add( 5201);   // ectoplasmic paste
+	add( 5216);   // elemental paste
+	add( 8553);   // emergency margarita
+	add( 4609);   // essential tofu
+	add(11347);   // extra time
+	add( 3327);   // extra-greasy slider
+	add( 9269);   // fancy chocolate sculpture
+	add( 9836);   // FantasyRealm guest pass
+	add( 7073);   // frost flower
+	add( 3324);   // Frosty's frosty mug
+	add( 8640);   // Ghost Dog Chow
+	add( 8392);   // gift card
+	add( 5209);   // goblin paste
+	add( 5198);   // gooey paste
+	add( 5202);   // greasy paste
+	add( 1625);   // green-frosted astral cupcake
+	add( 7065);   // grim fairy tale
+	add( 1592);   // hot hi mein
+	add( 8698);   // iced plum wine
+	add( 3325);   // jar of fermented pickle juice
+	add( 8993);   // jumping horseradish
+	add( 7797);   // karma shawarma
+	add( 3353);   // llama lama gong
+	add( 7133);   // lupine appetite hormones
+	add(11645);   // Mmm-brr! brand mouthwash
+	add( 2614);   // mojo filter
+	add( 8823);   // Mr. Burnsger
+	add(11622);   // muscular soup
+	add( 9943);   // Neverending Party guest pass
+	add( 5200);   // oily paste
+	add( 8204);   // one-day ticket to Dinseylandfill
+	add( 8486);   // one-day ticket to That 70s Volcano
+	add( 8737);   // perfect cosmopolitan
+	add( 8739);   // perfect dark and stormy
+	add( 8740);   // perfect mimosa
+	add( 8738);   // perfect negroni
+	add( 8741);   // perfect old-fashioned
+	add( 8742);   // perfect paloma
+	add( 9537);   // pocket wish
+	add( 9761);   // Poké-Gro fertilizer
+	add( 4412);   // quantum taco
+	add( 4497);   // recording of The Ballad of Richie Thingfinder
+	add( 5471);   // resolution: be more adventurous
+	add( 8994);   // Sacramento wine
+	add( 1596);   // sleazy hi mein
+	add( 8088);   // solid gold jewel
+	add( 3433);   // spice melange
+	add( 9496);   // splendid martini
+
+	return ids;
+}
+
 item [int] arTickets() {
 	item [int] chosen;
-	string raw = get_property(AR_ITEMS);
+
+	// A preference that has never been written falls back to the list above;
+	// one written empty is an empty list. get_property() answers "" to both,
+	// so property_exists() is what tells them apart -- without it, clearing
+	// your tickets would put all seventy-two straight back, and there would be
+	// no way to say "none".
+	string raw = property_exists(AR_ITEMS)
+		? get_property(AR_ITEMS)
+		: arJoin(arDefaultTicketIds(), ",");
 	if (raw == "") return chosen;
 
 	int n = 0;
