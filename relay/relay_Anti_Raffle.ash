@@ -67,9 +67,12 @@ void main() {
 	out.append("<div class='ar-panel' id='ar-panel-sales'>\n");
 	// No "everything" switch: the sales tab is the ticket sales, because that
 	// is the list a winner gets read out of.
-	out.append("<div class='ar-filters'>");
+	out.append("<div class='ar-row'>");
 	out.append("<select id='ar-by-item'></select>");
 	out.append("<select id='ar-by-buyer'></select>");
+	// The filters work on what is already here; this is how you go and ask KoL
+	// again, which is the one thing on this page worth asking twice.
+	out.append("<button class='ar-go' id='ar-refresh'>Refresh data</button>");
 	out.append("</div>\n");
 	out.append("<div id='ar-sales'></div>\n");
 	out.append("</div>\n");

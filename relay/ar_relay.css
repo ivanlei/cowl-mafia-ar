@@ -189,9 +189,16 @@ button.ar-write { }
 
 /* --- Sales -------------------------------------------------------------- */
 
-.ar-filters { margin-bottom: 8px; }
-.ar-filters select { font: inherit; margin-right: 8px; max-width: 16em; }
-.ar-filters label { margin-right: 12px; }
+/* The sales controls sit in an .ar-row like every other control line, so the
+ * two filters and the button line up and wrap together. */
+#ar-by-item, #ar-by-buyer {
+	font: inherit;
+	padding: 7px;
+	max-width: 16em;
+	border: 1px solid #999;
+	border-radius: 3px;
+	background: #fff;
+}
 
 /* --- Narrow ------------------------------------------------------------- */
 

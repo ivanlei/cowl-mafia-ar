@@ -46,7 +46,8 @@ than it sells for is the whole definition of one — but it is read, never used
 to spend.
 
 **Sales.** Sales of your tickets, newest first, filtered by item or by buyer
-and sortable by any column.
+and sortable by any column. **Refresh data** asks KoL for the log again,
+keeping whatever you had it narrowed to.
 Only your tickets: this is the log you read the winner out of, and the rest of
 your store is an ordinary sale. If a line of KoL's log cannot be read, the page
 says how many rather than quietly leaving them out.

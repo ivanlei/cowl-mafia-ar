@@ -579,11 +579,17 @@
 	}
 
 	function loadSales() {
+		var refresh = document.getElementById('ar-refresh');
+		if (refresh) refresh.disabled = true;
 		say('Reading the sales log…', 'busy');
 		ask('/ar_sales.ash', {}, function (answer) {
 			state.sales = answer.sales;
 			state.buyers = answer.buyers;
 			state.names = answer.names;
+			// The chosen filters survive a refresh when what they name is
+			// still in the log, which is what fillFilter's third argument is
+			// for -- a refresh you have to re-narrow afterwards is a refresh
+			// you would rather not have pressed.
 			fillFilter(document.getElementById('ar-by-item'), answer.names,
 				state.filterItem, 'Every item');
 			fillFilter(document.getElementById('ar-by-buyer'), answer.buyers,
@@ -593,6 +599,10 @@
 					+ 'and one of them could be a ticket sale.'
 				: '');
 			drawSales();
+		}, function () {
+			// Down every path, so a log KoLmafia would not hand over does not
+			// leave the button that asks for it disabled.
+			if (refresh) refresh.disabled = false;
 		});
 	}
 
@@ -687,6 +697,10 @@
 				say(state.items.length + ' tickets from the shipped list.', 'done');
 			});
 		};
+
+		// Each press is a request to KoL for the whole log, so the button goes
+		// down while one is in flight rather than queueing another behind it.
+		document.getElementById('ar-refresh').onclick = loadSales;
 
 		document.getElementById('ar-by-item').onchange = function () {
 			state.filterItem = this.value;
