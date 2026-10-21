@@ -213,7 +213,7 @@
 
 		if (!state.held.length) {
 			var none = el('option', null,
-				'Nothing to hand in inventory, closet, display case or Hagnk\u2019s');
+				'Nothing you hold can go in the mall');
 			none.value = '';
 			select.appendChild(none);
 			select.disabled = true;
@@ -229,9 +229,8 @@
 		state.held.slice().sort(function (a, b) {
 			return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
 		}).forEach(function (item) {
-			var label = item.name + ' \u2014 ' + item.have + ' in ' + item.places;
-			if (!item.tradeable) label += ' (not tradeable)';
-			var option = el('option', null, label);
+			var option = el('option', null,
+				item.name + ' \u2014 ' + item.have + ' in ' + item.places);
 			option.value = item.id;
 			select.appendChild(option);
 		});

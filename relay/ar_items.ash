@@ -17,9 +17,22 @@
 
 import <ar_relay.ash>
 
-// Everything in the four places restocking draws from, each with how many are
-// there and where. Counted across all of them, since the same item in the
-// closet and in Hagnk's is one entry in a dropdown and not two.
+// Everything you hold that could go in the store, from the four places
+// restocking draws from, each with how many are there and where. Counted
+// across all of them, since the same item in the closet and in Hagnk's is one
+// entry in a dropdown and not two.
+//
+// Tradeable only. is_tradeable() is the flag that decides it -- KoL's own t=1
+// on an inventory row, and the test KoLmafia itself applies before putting
+// anything in a store (StoreManager, "if (!ItemDatabase.isTradeable(itemId))
+// continue"). An untradeable item cannot be listed and could not be given to
+// a winner either, so it is not a ticket in any sense.
+//
+// Read fresh on every call. get_inventory(), get_closet(), get_display() and
+// get_storage() each walk KoLConstants' live list -- there is no cache here
+// and no stored copy of the answer -- so the dropdown is whatever KoLmafia
+// believes you hold at the moment you open the tab. It is KoLmafia's belief,
+// updated as it parses what KoL tells it, rather than a fresh ask of KoL.
 //
 // Not sorted here: the page sorts it with localeCompare, which knows about
 // accents and case in a way ASH's sort does not, and already does the same
@@ -48,12 +61,12 @@ void arHeld() {
 		// Already a ticket is already answered; offering it again is offering
 		// a choice that does nothing.
 		if (arHasTicket(it)) continue;
+		if (!it.is_tradeable()) continue;
 		if (written > 0) out.append(",");
 		out.append("{\"id\":" + it.to_int());
 		out.append(",\"name\":" + arQuoted(arItemName(it)));
 		out.append(",\"have\":" + n);
-		out.append(",\"places\":" + arQuoted(places[it]));
-		out.append(",\"tradeable\":" + (it.is_tradeable() ? "true" : "false") + "}");
+		out.append(",\"places\":" + arQuoted(places[it]) + "}");
 		written = written + 1;
 	}
 	out.append("],\"shown\":" + written + "}");
