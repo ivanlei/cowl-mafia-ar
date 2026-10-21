@@ -170,6 +170,7 @@ string [int] arDefaultTicketIds() {
 
 item [int] arTickets() {
 	item [int] chosen;
+	boolean [item] seen;
 	string raw = get_property(AR_ITEMS);
 	if (raw == "") return chosen;
 
@@ -185,12 +186,11 @@ item [int] arTickets() {
 		if (it == $item[none]) continue;
 
 		// Keep the first of a repeat rather than the last, so the order you
-		// added things in is the order they stay in.
-		boolean already = false;
-		foreach j, have in chosen {
-			if (have == it) already = true;
-		}
-		if (already) continue;
+		// added things in is the order they stay in. A map to notice one,
+		// rather than a scan of what has been built so far: this function is
+		// called often enough that its own inner loop was worth taking out.
+		if (seen contains it) continue;
+		seen[it] = true;
 
 		chosen[n] = it;
 		n = n + 1;
@@ -198,6 +198,19 @@ item [int] arTickets() {
 	return chosen;
 }
 
+// The tickets as a set, for asking about more than one item.
+//
+// arHasTicket() below re-reads the preference every time it is called, which
+// is fine for the one item a command names and ruinous in a loop: asking it
+// about each of ~2,900 held items took 1.7 seconds, all of it spent parsing
+// the same preference over and over. Build this once and test against it.
+boolean [item] arTicketSet() {
+	boolean [item] chosen;
+	foreach i, it in arTickets() chosen[it] = true;
+	return chosen;
+}
+
+// One item, one question. In a loop, use arTicketSet().
 boolean arHasTicket(item it) {
 	foreach i, have in arTickets() {
 		if (have == it) return true;
@@ -529,8 +542,7 @@ arSale [int] arSales() {
 // ManageStoreRequest -- a round trip to KoL. Reading it twice per command was
 // two trips and two "Examining store logs..." in the gCLI.
 arSale [int] arTicketsAmong(arSale [int] all) {
-	boolean [item] chosen;
-	foreach i, it in arTickets() chosen[it] = true;
+	boolean [item] chosen = arTicketSet();
 
 	arSale [int] kept;
 	foreach i, s in all {

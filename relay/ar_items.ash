@@ -54,13 +54,17 @@ void arHeld() {
 	gather(get_display(), "display");
 	gather(get_storage(), "storage");
 
+	// Once, not once per held item: arHasTicket() re-reads the preference on
+	// every call, and there are a couple of thousand items to ask about.
+	boolean [item] chosen = arTicketSet();
+
 	buffer out;
 	out.append("{\"ok\":true,\"error\":\"\",\"held\":[");
 	int written = 0;
 	foreach it, n in total {
 		// Already a ticket is already answered; offering it again is offering
 		// a choice that does nothing.
-		if (arHasTicket(it)) continue;
+		if (chosen contains it) continue;
 		if (!it.is_tradeable()) continue;
 		if (written > 0) out.append(",");
 		out.append("{\"id\":" + it.to_int());

@@ -10,6 +10,11 @@
 //
 // The log is KoL's, fetched by get_shop_log() through a ManageStoreRequest, so
 // it is as long as KoL is willing to make it and not something this keeps.
+//
+// That is one request to KoL every time this is asked, and deliberately so: a
+// sales log is the one thing here that is worthless if it is stale, since the
+// reason to open it is to find out what has just sold. One request, not one
+// per ticket -- the whole log arrives at once and is filtered here.
 
 import <ar_relay.ash>
 
