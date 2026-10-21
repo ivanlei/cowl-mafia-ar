@@ -74,10 +74,11 @@ string arJoin(string [int] parts, string separator) {
 // of a ticket. They spread across food, drink, one-day passes, the pastes and
 // a few oddities, so a channel seeing several of them in a week sees variety.
 //
-// A starting point and nothing more. Add to it, cut it down to the handful
-// you actually keep in stock, or empty it entirely; nothing ever puts an item
-// back once you have taken it out, and the list below is read only when the
-// preference has never been written.
+// Nothing reads this unless you ask for it -- the "Default items" button on
+// the Tickets tab, or `ar defaultitems`. It is not a fallback for an empty
+// list: a list that refills itself when you empty it cannot be emptied, and
+// telling "never chosen" from "chosen nothing" needs machinery that a button
+// does not. Your tickets are whatever you last said they were.
 //
 // Ids, for the reason the preference stores ids: a name can contain a comma,
 // which is the separator, and KoL renames things. The name beside each is
@@ -165,15 +166,7 @@ string [int] arDefaultTicketIds() {
 
 item [int] arTickets() {
 	item [int] chosen;
-
-	// A preference that has never been written falls back to the list above;
-	// one written empty is an empty list. get_property() answers "" to both,
-	// so property_exists() is what tells them apart -- without it, clearing
-	// your tickets would put all seventy-two straight back, and there would be
-	// no way to say "none".
-	string raw = property_exists(AR_ITEMS)
-		? get_property(AR_ITEMS)
-		: arJoin(arDefaultTicketIds(), ",");
+	string raw = get_property(AR_ITEMS);
 	if (raw == "") return chosen;
 
 	int n = 0;

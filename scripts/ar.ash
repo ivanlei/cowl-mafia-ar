@@ -6,7 +6,7 @@
 //     ar remove <item>       unchoose one
 //     ar stock               the store, source by source
 //     ar restock [item]      list and park -- the one command that writes
-//     ar defaults            take the list this ships with
+//     ar defaultitems        replace the list with the one this ships with
 //     ar count [n]           how many of each to hold
 //     ar sources             where restocking may draw from
 //     ar sources add <place>, ar sources remove <place>, ar sources <list>
@@ -34,7 +34,7 @@ string arHelp() {
 	row("remove &lt;item&gt;", "unchoose one");
 	row("stock", "what is in the store, and what each source could supply");
 	row("restock [item]", "<b>writes:</b> list the shortfall and park it");
-	row("defaults", "take the list this ships with");
+	row("defaultitems", "replace the list with the one this ships with");
 	row("count [n]", "how many of each to hold (now " + arCount() + ")");
 	row("sources", "where restocking may draw from");
 	row("sources add|remove &lt;place&gt;", "switch one on or off");
@@ -226,7 +226,7 @@ void arDoRemove(string rest) {
 // The shipped list, for somebody who has already chosen tickets and wants to
 // start from it anyway. The list it replaces is printed before it goes, so a
 // mistake is one `set arTicketItems=...` away from undone rather than gone.
-void arDoDefaults() {
+void arDoDefaultItems() {
 	item [int] had = arTickets();
 	string before = get_property(AR_ITEMS);
 
@@ -428,8 +428,8 @@ void main(string ... words) {
 			arShowStock();
 			return;
 
-		case "defaults":
-			arDoDefaults();
+		case "defaultitems":
+			arDoDefaultItems();
 			return;
 
 		case "count":

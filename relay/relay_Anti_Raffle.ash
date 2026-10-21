@@ -40,6 +40,7 @@ void main() {
 	out.append("<div class='ar-search'>");
 	out.append("<input type='text' id='ar-q' autocomplete='off' spellcheck='false'"
 		+ " placeholder='Find an item to use as a ticket'>");
+	out.append("<button class='ar-go' id='ar-defaults'>Default items</button>");
 	out.append("</div>\n");
 	out.append("<div id='ar-found'></div>\n");
 	out.append("<div id='ar-chosen'></div>\n");

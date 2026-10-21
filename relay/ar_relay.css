@@ -108,12 +108,20 @@ table.ar img.icon { width: 30px; height: 30px; vertical-align: middle; }
 
 /* --- Finding an item ---------------------------------------------------- */
 
-.ar-search { margin-bottom: 6px; }
+/* The box and the button on one line, wrapping to two when the pane is
+ * narrow rather than squeezing the box down to nothing. */
+.ar-search {
+	margin-bottom: 6px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+}
 
 #ar-q {
 	font: inherit;
 	padding: 8px;
-	width: 100%;
+	flex: 1 1 260px;
 	max-width: 420px;
 	box-sizing: border-box;
 	border: 1px solid #999;

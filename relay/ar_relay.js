@@ -653,6 +653,27 @@
 
 		document.getElementById('ar-q').oninput = searchSoon;
 
+		// Asked first, and in its own words: this throws away whatever you had
+		// chosen, and the page cannot hand it back the way the gCLI does.
+		document.getElementById('ar-defaults').onclick = function () {
+			var had = state.items.length;
+			if (had && !window.confirm(
+					'Replace your ' + had + ' chosen ticket'
+					+ (had === 1 ? '' : 's') + ' with the list this ships with?')) {
+				return;
+			}
+			say('Loading the shipped list\u2026', 'busy');
+			ask('/ar_items.ash', { defaults: 1 }, function (answer) {
+				state.items = answer.items;
+				state.settings = answer.settings;
+				state.loaded.stock = true;
+				drawChosen();
+				drawSettings();
+				drawStock();
+				say(state.items.length + ' tickets from the shipped list.', 'done');
+			});
+		};
+
 		document.getElementById('ar-by-item').onchange = function () {
 			state.filterItem = this.value;
 			drawSales();

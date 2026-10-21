@@ -3,7 +3,8 @@
 //     ?q=<text>        search every item by name
 //     ?add=<id>        choose one
 //     ?remove=<id>     unchoose one
-//     (neither)        the chosen list
+//     ?defaults=1      replace the list with the one this ships with
+//     (none of them)   the chosen list
 //
 // The search runs here rather than in the browser. `$items[]` with nothing in
 // the brackets is an implicit enumeration of every item KoLmafia knows
@@ -75,6 +76,15 @@ void arChosen() {
 void main() {
 	if (!arAuthorised()) {
 		arRefuseStale();
+		return;
+	}
+
+	// Explicit, like the restock, and for the same reason: it throws away a
+	// list you may have spent a while building, so it does not happen because
+	// a page was opened.
+	if (form_field("defaults") == "1") {
+		set_property(AR_ITEMS, arJoin(arDefaultTicketIds(), ","));
+		arChosen();
 		return;
 	}
 

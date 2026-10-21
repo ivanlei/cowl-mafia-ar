@@ -19,12 +19,15 @@ getting them into the store and parked, and reading back what sold.
 KoLmafia knows by name; the gCLI takes a name or an id. They are kept as item
 ids, so a rename or a comma in a name cannot break the list.
 
-A fresh install starts with **72 items already chosen** — all tradeable, all
-worth more than the minimum price they can be sold at, spread across food,
-drink, one-day passes, the pastes and a few oddities. It is a starting point:
-cut it down to the handful you actually keep in stock, or clear it entirely.
-Nothing puts an item back once you have taken it out, and `ar defaults` is
-there if you want the shipped list after you have changed things.
+**Default items** on that tab, or `ar defaultitems`, fills the list with **72
+items** that make reasonable tickets — all tradeable, all worth more than the
+minimum price they can be sold at, spread across food, drink, one-day passes,
+the pastes and a few oddities. Then cut it down to the handful you actually
+keep in stock.
+
+It is a button and not a default, which is the whole point: your tickets are
+whatever you last said they were. A list that refills itself when you empty it
+cannot be emptied.
 
 **Stock.** How many of each to stock and what to park them at, which sources
 restocking may draw from, and for each ticket: how many are listed, at what price and limit, how
@@ -59,7 +62,7 @@ ar add <item>          choose one
 ar remove <item>       unchoose one
 ar stock               the store, source by source
 ar restock [item]      list and park -- the one command that writes
-ar defaults            take the list this ships with
+ar defaultitems        replace the list with the one this ships with
 ar count [n]           how many of each to hold (default 11)
 ar sources             where restocking may draw from
 ar sources add <place>       switch one on
@@ -78,17 +81,13 @@ Ordinary KoLmafia preferences. Change them on the page, with `ar count` and
 
 | Preference | Default | |
 |---|---|---|
-| `arTicketItems` | the 72 shipped items | the chosen items, as ids |
+| `arTicketItems` | empty | the chosen items, as ids |
 | `arRestockCount` | `11` | how many of each to hold |
 | `arParkPrice` | `999999999999` | the price restock parks at (KoL's ceiling) |
 | `arSources` | `inventory,closet,display,storage` | where restocking may draw from |
 
 Those four are all of them. There is no fifth that buys.
 
-`arTicketItems` is the one preference with a list behind it rather than a
-value. Until it has been written the shipped list stands in; once it has, it
-is the only answer — which is how clearing your tickets leaves them cleared
-instead of putting all seventy-two back.
 
 ## Install
 
