@@ -84,6 +84,20 @@ table.ar td {
 }
 
 table.ar td.num, table.ar th.num { text-align: right; }
+
+/* A heading you can sort by. Underlined rather than coloured, so it reads as
+ * something to press in both themes and at the size these headings are. */
+table.ar th.ar-sortable {
+	cursor: pointer;
+	text-decoration: underline;
+	text-decoration-style: dotted;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+table.ar th.ar-sortable:hover { color: #000; }
+table.ar th.ar-sortable.on { color: #000; text-decoration-style: solid; }
+.ar-arrow { font-size: 9px; }
 table.ar img.icon { width: 30px; height: 30px; vertical-align: middle; }
 
 .ar-id { color: #888; font-size: 11px; }

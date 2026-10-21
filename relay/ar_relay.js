@@ -30,6 +30,10 @@
 		names: [],
 		filterItem: '',
 		filterBuyer: '',
+		// Newest first, which is the order the store log arrives in and the
+		// order you read a winner out of it.
+		sortBy: 'when',
+		sortDesc: true,
 		loaded: {}             // which tabs have asked for their data
 	};
 
@@ -116,11 +120,27 @@
 		return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 	}
 
-	function table(headings) {
+	// A heading with a `key` is one you can sort by: clicking it sorts, and
+	// clicking the one already sorted turns it round. `onSort` is what the
+	// caller does with the new order, since the table itself holds no rows.
+	function table(headings, sorted, onSort) {
 		var t = el('table', 'ar');
 		var head = el('tr');
 		for (var i = 0; i < headings.length; i++) {
-			var h = el('th', headings[i].num ? 'num' : null, headings[i].text);
+			var heading = headings[i];
+			var h = el('th', heading.num ? 'num' : null, heading.text);
+			if (heading.key && onSort) {
+				h.className = (h.className ? h.className + ' ' : '') + 'ar-sortable';
+				if (sorted && sorted.by === heading.key) {
+					h.className += ' on';
+					// An arrow rather than a word: the column is narrow and the
+					// heading is already as short as it reads.
+					h.appendChild(el('span', 'ar-arrow', sorted.desc ? ' \u25bc' : ' \u25b2'));
+				}
+				h.onclick = (function (key) {
+					return function () { onSort(key); };
+				})(heading.key);
+			}
 			head.appendChild(h);
 		}
 		t.appendChild(head);
@@ -364,8 +384,8 @@
 
 		var t = table([
 			{ text: '' }, { text: 'Ticket' }, { text: 'In store' },
-			{ text: 'Need', num: true }, { text: 'Can reach', num: true },
-			{ text: 'Where from' }, { text: '' }
+			{ text: 'Need', num: true }, { text: 'You have', num: true },
+			{ text: 'In' }, { text: '' }
 		]);
 
 		state.items.forEach(function (row) {
@@ -390,6 +410,9 @@
 			cell(tr, row.shortfall || '—', row.shortfall ? 'num ar-short' : 'num');
 			cell(tr, row.reachable, 'num');
 
+			// One place per line. Strung together with separators they read as
+			// one sentence about one number, which is the opposite of what
+			// four places holding four different counts is.
 			var from = el('td');
 			var said = 0;
 			row.sources.forEach(function (source) {
@@ -397,8 +420,7 @@
 				if (!source.available) return;
 				var text = source.place + ': ' + source.available
 					+ (source.shut ? ' (' + source.shut + ')' : '');
-				if (said) from.appendChild(document.createTextNode(' · '));
-				from.appendChild(el('span', source.shut ? 'ar-shut' : null, text));
+				from.appendChild(el('div', source.shut ? 'ar-shut' : null, text));
 				said++;
 			});
 			if (!said) from.appendChild(el('span', 'ar-dim', 'nothing to hand'));
@@ -495,6 +517,35 @@
 		});
 	}
 
+	// What each column sorts on. "When" is built into a string that sorts
+	// right -- KoL writes MM/DD/YY, which puts March 2026 before April 2025 --
+	// rather than trusting the order the log happened to arrive in, since that
+	// is KoLmafia's Store Manager sort setting and not ours to rely on.
+	var SORT_KEYS = {
+		when: function (s) {
+			var d = String(s.date || '').split('/');
+			return d.length === 3
+				? d[2] + '-' + d[0] + '-' + d[1] + ' ' + (s.time || '')
+				: String(s.stamp || '');
+		},
+		buyer: function (s) { return String(s.buyer || '').toLowerCase(); },
+		qty:   function (s) { return Number(s.qty) || 0; },
+		item:  function (s) { return String(s.name || '').toLowerCase(); },
+		meat:  function (s) { return Number(s.meat) || 0; }
+	};
+
+	function sortSales(key) {
+		// The same column again turns it round; a different one starts it the
+		// way that column reads best -- newest and biggest first, names from A.
+		if (state.sortBy === key) {
+			state.sortDesc = !state.sortDesc;
+		} else {
+			state.sortBy = key;
+			state.sortDesc = (key === 'when' || key === 'qty' || key === 'meat');
+		}
+		drawSales();
+	}
+
 	function drawSales() {
 		var where = document.getElementById('ar-sales');
 		where.textContent = '';
@@ -505,6 +556,15 @@
 			return true;
 		});
 
+		var keyOf = SORT_KEYS[state.sortBy] || SORT_KEYS.when;
+		shown.sort(function (a, b) {
+			var x = keyOf(a), y = keyOf(b);
+			// A tie keeps the log's own order, so four sales in the same second
+			// do not shuffle between redraws.
+			if (x === y) return (a.id || 0) - (b.id || 0);
+			return (x < y ? -1 : 1) * (state.sortDesc ? -1 : 1);
+		});
+
 		if (!shown.length) {
 			where.appendChild(el('p', 'ar-dim',
 				state.sales.length ? 'Nothing matches those filters.'
@@ -513,9 +573,12 @@
 		}
 
 		var t = table([
-			{ text: 'When' }, { text: 'Buyer' }, { text: 'Qty', num: true },
-			{ text: 'Item' }, { text: 'Meat', num: true }
-		]);
+			{ text: 'When', key: 'when' },
+			{ text: 'Buyer', key: 'buyer' },
+			{ text: 'Qty', num: true, key: 'qty' },
+			{ text: 'Item', key: 'item' },
+			{ text: 'Meat', num: true, key: 'meat' }
+		], { by: state.sortBy, desc: state.sortDesc }, sortSales);
 
 		shown.forEach(function (sale) {
 			var tr = el('tr');
