@@ -67,7 +67,7 @@ string arJoin(string [int] parts, string separator) {
 
 // --- The list a fresh install starts with ----------------------------------
 //
-// Seventy-five items that make reasonable tickets. Every one of them is
+// Seventy-nine items that make reasonable tickets. Every one of them is
 // tradeable, and every one was worth more than the minimum price it can be
 // sold at when this was written -- checked against KoLmafia's own historical
 // prices, since an item worth more than it sells for is the whole definition
@@ -137,16 +137,17 @@ string [int] arDefaultTicketIds() {
 	add( 3325);   // jar of fermented pickle juice
 	add( 8993);   // jumping horseradish
 	add( 7797);   // karma shawarma
-	add( 3353);   // llama lama gong
 	add( 7133);   // lupine appetite hormones
+	add(11598);   // mini kiwi aioli
 	add(11645);   // Mmm-brr! brand mouthwash
 	add( 2614);   // mojo filter
-	add( 8823);   // Mr. Burnsger
+	add( 1619);   // munchies pill
 	add(11622);   // muscular soup
 	add( 9943);   // Neverending Party guest pass
 	add( 5200);   // oily paste
 	add( 8204);   // one-day ticket to Dinseylandfill
 	add( 8486);   // one-day ticket to That 70s Volcano
+	add( 8675);   // one-day ticket to The Glaciest
 	add( 8737);   // perfect cosmopolitan
 	add( 8739);   // perfect dark and stormy
 	add( 8740);   // perfect mimosa
@@ -154,18 +155,22 @@ string [int] arDefaultTicketIds() {
 	add( 8741);   // perfect old-fashioned
 	add( 8742);   // perfect paloma
 	add( 9537);   // pocket wish
-	add( 9761);   // Poké-Gro fertilizer
+	add( 3440);   // prismatic wad
 	add( 4412);   // quantum taco
-	add( 4497);   // recording of The Ballad of Richie Thingfinder
 	add( 5471);   // resolution: be more adventurous
 	add( 8994);   // Sacramento wine
 	add( 1596);   // sleazy hi mein
-	add( 8088);   // solid gold jewel
-	add( 3433);   // spice melange
-	add( 9496);   // splendid martini
+	add( 1594);   // spooky hi mein
+	add( 1595);   // stinky hi mein
+	add( 7481);   // sweet tooth
+	add( 2655);   // tiny bottle of absinthe
+	add( 7773);   // transdermal smoke patch
+	add( 5170);   // transporter transponder
+	add( 8554);   // vintage smart drink
 
 	return ids;
 }
+
 
 
 item [int] arTickets() {
