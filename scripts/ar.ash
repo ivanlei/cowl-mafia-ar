@@ -71,7 +71,7 @@ void arShowItems() {
 	foreach i, r in arRows() {
 		out.append("<tr><td><img src=\"/images/itemimages/" + r.image
 			+ "\" width=30 height=30></td>");
-		out.append("<td>" + r.name + " <font color=gray>[" + r.id + "]</font></td>");
+		out.append("<td>" + r.name + " <font color=gray>[id:" + r.id + "]</font></td>");
 		out.append("<td align=right>" + (r.tradeable ? r.mallPrice.to_string() : "&mdash;") + "</td>");
 		out.append("<td align=right>" + r.minPrice + "</td>");
 		out.append("<td align=right>" + r.inStore + " of " + r.want + "</td></tr>");
@@ -205,7 +205,7 @@ void arDoAdd(string rest) {
 		print(adding + " is already a ticket.", "olive");
 		return;
 	}
-	print("Added " + adding + " [" + adding.to_int() + "].", "green");
+	print("Added " + adding + " [id:" + adding.to_int() + "].", "green");
 }
 
 void arDoRemove(string rest) {

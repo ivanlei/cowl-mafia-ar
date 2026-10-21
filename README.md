@@ -19,7 +19,8 @@ getting them into the store and parked, and reading back what sold.
 KoLmafia knows by name; the gCLI takes a name or an id. They are kept as item
 ids, so a rename or a comma in a name cannot break the list.
 
-**Stock.** For each ticket: how many are listed, at what price and limit, how
+**Stock.** How many of each to stock and what to park them at, which sources
+restocking may draw from, and for each ticket: how many are listed, at what price and limit, how
 many each place you keep things could supply, and how far short of your target
 you are. **Restock** gathers the shortfall, lists it, and parks it at a price
 nobody can pay — so that announcing a raffle later is one price change rather

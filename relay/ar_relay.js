@@ -41,7 +41,7 @@
 		note.className = kind || '';
 	}
 
-	function ask(url, params, then) {
+	function ask(url, params, then, always) {
 		var form = 'pwd=' + encodeURIComponent(arPwd);
 		for (var key in params) {
 			if (!params.hasOwnProperty(key)) continue;
@@ -58,12 +58,17 @@
 
 			// KoLmafia answers a stale password hash with an empty 401 before
 			// the script runs at all, so there is no {ok:false} to read.
+			// `always` runs down every path, so a caller that disabled a
+			// button can put it back whether the answer was yes, no or
+			// nothing at all.
 			if (xhr.status === 401) {
 				say('This page is out of date. Reload it.', 'err');
+				if (always) always();
 				return;
 			}
 			if (xhr.status !== 200) {
 				say('KoLmafia did not answer (' + xhr.status + ').', 'err');
+				if (always) always();
 				return;
 			}
 
@@ -74,13 +79,16 @@
 				// An ASH script that will not compile is served as a bare 404,
 				// and one that aborts halfway leaves a part-written answer.
 				say('KoLmafia answered with something that is not an answer.', 'err');
+				if (always) always();
 				return;
 			}
 			if (!answer.ok) {
 				say(answer.error || 'Refused.', 'err');
+				if (always) always();
 				return;
 			}
 			then(answer);
+			if (always) always();
 		};
 		xhr.send(form);
 	}
@@ -150,7 +158,7 @@
 			var name = el('td');
 			name.appendChild(el('span', null, row.name));
 			name.appendChild(document.createTextNode(' '));
-			name.appendChild(el('span', 'ar-id', '[' + row.id + ']'));
+			name.appendChild(el('span', 'ar-id', '[id:' + row.id + ']'));
 			tr.appendChild(name);
 
 			cell(tr, row.tradeable ? meat(row.mallPrice) : '—', 'num');
@@ -202,7 +210,7 @@
 			var name = el('td');
 			name.appendChild(el('span', null, found.name));
 			name.appendChild(document.createTextNode(' '));
-			name.appendChild(el('span', 'ar-id', '[' + found.id + ']'));
+			name.appendChild(el('span', 'ar-id', '[id:' + found.id + ']'));
 			if (!found.tradeable) {
 				name.appendChild(document.createTextNode(' '));
 				name.appendChild(el('span', 'ar-shut', 'not tradeable'));
@@ -276,7 +284,7 @@
 
 		var line = el('div');
 
-		var countLabel = el('label', null, 'Hold ');
+		var countLabel = el('label', null, 'Stock ');
 		var count = document.createElement('input');
 		count.type = 'number';
 		count.min = '1';
@@ -290,6 +298,7 @@
 
 		var parkLabel = el('label', null, 'Parked at ');
 		var park = document.createElement('input');
+		park.className = 'ar-price';
 		park.type = 'number';
 		park.min = '1';
 		park.max = String(s.parkMax);
@@ -328,16 +337,18 @@
 		});
 		where.appendChild(sources);
 
-		// Only what would stop a source handing something over. Nothing here
-		// spends meat, so there is nothing to say about how much you have.
-		var note = el('div', 'ar-note');
+		// Only what KoL is stopping you doing today, and only when it is
+		// stopping you. This is not about the checkboxes above -- those are
+		// which sources you allow -- and in ordinary play none of it can fire,
+		// so saying "every source is open" every time said nothing at all.
+		// Which source is shut for a given ticket is on that ticket's row.
 		var bits = [];
 		if (s.limited) bits.push('limit mode: ' + s.limited);
 		if (!s.caseOpen) bits.push('the display case will not open in Ronin');
 		if (s.pulls === 0) bits.push('no pulls left today');
-		else if (s.pulls > 0) bits.push(s.pulls + ' pulls left');
-		note.textContent = bits.length ? bits.join(' · ') : 'Every source is open.';
-		where.appendChild(note);
+		if (bits.length) {
+			where.appendChild(el('div', 'ar-note', bits.join(' · ')));
+		}
 	}
 
 	// --- Stock ------------------------------------------------------------
@@ -402,13 +413,21 @@
 			t.appendChild(tr);
 		});
 
+		// One above and one below. A long list of tickets put the only way to
+		// restock all of them off the bottom of the screen, which on an iPad
+		// means scrolling past every row to reach the button that acts on all
+		// of them.
+		where.appendChild(everyTicketButton());
 		where.appendChild(t);
+		where.appendChild(everyTicketButton());
+	}
 
+	function everyTicketButton() {
 		var all = el('button', 'ar-go ar-write', 'Restock every ticket');
 		all.onclick = function () { restock('', all); };
-		var footer = el('p');
-		footer.appendChild(all);
-		where.appendChild(footer);
+		var holder = el('p', 'ar-all');
+		holder.appendChild(all);
+		return holder;
 	}
 
 	function drawSteps(results) {

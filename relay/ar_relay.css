@@ -140,11 +140,17 @@ button.ar-write {
 }
 
 #ar-settings label { margin-right: 14px; white-space: nowrap; }
-#ar-settings input[type=number] { font: inherit; width: 7em; padding: 3px; }
+#ar-settings input[type=number] { font: inherit; width: 5em; padding: 3px; }
+/* Twelve digits plus the spinner: KoL's ceiling is 999,999,999,999, and a
+ * field that cuts it off is a field you cannot read the value out of. */
+#ar-settings input.ar-price { width: 11em; }
 #ar-settings .ar-sources label { margin-right: 10px; }
 #ar-settings .ar-note { color: #666; margin-top: 6px; }
 
 /* --- What a restock did ------------------------------------------------- */
+
+/* The one above the table and the one below it. */
+.ar-all { margin: 8px 0; }
 
 #ar-steps { margin-top: 12px; }
 #ar-steps .ar-step { padding: 2px 0; }
