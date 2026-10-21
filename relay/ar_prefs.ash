@@ -2,14 +2,10 @@
 //
 //     ?name=<preference>&value=<value>
 //
-// Only the five below. A relay script answers whatever the browser asks it,
+// Only the three below. A relay script answers whatever the browser asks it,
 // and "set any preference you like" is not a thing to leave lying in the relay
 // folder, so a name that is not one of these is refused rather than set.
-//
-// arPriceLevel and arMaxPrice are deliberately settable to the empty string:
-// unset is not zero. Unset means "whatever the maximizer's field says", zero
-// means the field was emptied, and the two fall through differently --
-// arLimitsNow() in ar_core.ash has the chain.
+
 
 import <ar_relay.ash>
 
@@ -18,8 +14,6 @@ boolean [string] arSettable() {
 	allowed[AR_COUNT] = true;
 	allowed[AR_PARK] = true;
 	allowed[AR_SOURCES] = true;
-	allowed[AR_PRICE_LEVEL] = true;
-	allowed[AR_MAX_PRICE] = true;
 	return allowed;
 }
 
@@ -35,19 +29,14 @@ string arBadValue(string name, string value) {
 		return "";
 	}
 
-	// The other four are numbers, and two of them may also be empty.
-	if (value == "") {
-		if (name == AR_PRICE_LEVEL || name == AR_MAX_PRICE) return "";
-		return "Not a number.";
-	}
-	if (!value.is_integer()) return "Not a number.";
+	// The other two are numbers.
+	if (value == "" || !value.is_integer()) return "Not a number.";
 
 	int n = value.to_int();
 	if (name == AR_COUNT && n < 1) return "Hold at least one.";
 	if (name == AR_PARK && (n < 1 || n > AR_MALL_MAX)) {
 		return "Outside what KoL allows for a price.";
 	}
-	if (n < 0) return "Not a number.";
 	return "";
 }
 

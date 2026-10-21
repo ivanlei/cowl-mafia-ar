@@ -30,7 +30,6 @@
 		names: [],
 		filterItem: '',
 		filterBuyer: '',
-		ticketsOnly: false,
 		loaded: {}             // which tabs have asked for their data
 	};
 
@@ -293,7 +292,7 @@
 		var park = document.createElement('input');
 		park.type = 'number';
 		park.min = '1';
-		park.max = String(s.mallMax);
+		park.max = String(s.parkMax);
 		park.value = s.parkPrice;
 		park.onchange = function () {
 			setPref('arParkPrice', park.value, function () { loadStock(true); });
@@ -329,15 +328,15 @@
 		});
 		where.appendChild(sources);
 
+		// Only what would stop a source handing something over. Nothing here
+		// spends meat, so there is nothing to say about how much you have.
 		var note = el('div', 'ar-note');
 		var bits = [];
 		if (s.limited) bits.push('limit mode: ' + s.limited);
-		if (!s.mallOpen) bits.push('the mall is shut in Ronin');
+		if (!s.caseOpen) bits.push('the display case will not open in Ronin');
 		if (s.pulls === 0) bits.push('no pulls left today');
 		else if (s.pulls > 0) bits.push(s.pulls + ' pulls left');
-		bits.push('buying capped at ' + meat(s.maxPrice) + ' (' + s.maxPriceFrom + ')');
-		bits.push(meat(s.meat) + ' meat');
-		note.textContent = bits.join(' · ');
+		note.textContent = bits.length ? bits.join(' · ') : 'Every source is open.';
 		where.appendChild(note);
 	}
 
@@ -384,15 +383,9 @@
 			var said = 0;
 			row.sources.forEach(function (source) {
 				if (!source.enabled) return;
-				var text;
-				if (source.place === 'mall') {
-					if (source.shut) text = 'mall: ' + source.shut;
-					else text = 'mall @ ' + meat(source.price);
-				} else {
-					if (!source.available) return;
-					text = source.place + ': ' + source.available
-						+ (source.shut ? ' (' + source.shut + ')' : '');
-				}
+				if (!source.available) return;
+				var text = source.place + ': ' + source.available
+					+ (source.shut ? ' (' + source.shut + ')' : '');
 				if (said) from.appendChild(document.createTextNode(' · '));
 				from.appendChild(el('span', source.shut ? 'ar-shut' : null, text));
 				said++;
@@ -488,7 +481,6 @@
 		where.textContent = '';
 
 		var shown = state.sales.filter(function (sale) {
-			if (!sale.parsed) return !state.filterItem && !state.filterBuyer;
 			if (state.filterItem && sale.name !== state.filterItem) return false;
 			if (state.filterBuyer && sale.buyer !== state.filterBuyer) return false;
 			return true;
@@ -497,7 +489,7 @@
 		if (!shown.length) {
 			where.appendChild(el('p', 'ar-dim',
 				state.sales.length ? 'Nothing matches those filters.'
-					: 'Nothing in the store’s sales log.'));
+					: 'No ticket of yours has sold.'));
 			return;
 		}
 
@@ -507,13 +499,7 @@
 		]);
 
 		shown.forEach(function (sale) {
-			var tr = el('tr', sale.ticket ? 'ar-ticket' : null);
-			if (!sale.parsed) {
-				var raw = cell(tr, sale.raw, 'ar-raw');
-				raw.colSpan = 5;
-				t.appendChild(tr);
-				return;
-			}
+			var tr = el('tr');
 			cell(tr, sale.stamp);
 			cell(tr, sale.buyer);
 			cell(tr, sale.qty, 'num');
@@ -535,9 +521,7 @@
 
 	function loadSales() {
 		say('Reading the sales log…', 'busy');
-		var params = {};
-		if (state.ticketsOnly) params.tickets = 1;
-		ask('/ar_sales.ash', params, function (answer) {
+		ask('/ar_sales.ash', {}, function (answer) {
 			state.sales = answer.sales;
 			state.buyers = answer.buyers;
 			state.names = answer.names;
@@ -545,8 +529,9 @@
 				state.filterItem, 'Every item');
 			fillFilter(document.getElementById('ar-by-buyer'), answer.buyers,
 				state.filterBuyer, 'Every buyer');
-			say(answer.unparsed
-				? answer.unparsed + ' line(s) of the log did not parse; they are shown as they came.'
+			say(answer.unreadable
+				? answer.unreadable + ' line(s) of the store log could not be read, '
+					+ 'and one of them could be a ticket sale.'
 				: '');
 			drawSales();
 		});
@@ -586,10 +571,6 @@
 
 		document.getElementById('ar-q').oninput = searchSoon;
 
-		document.getElementById('ar-tickets-only').onchange = function () {
-			state.ticketsOnly = this.checked;
-			loadSales();
-		};
 		document.getElementById('ar-by-item').onchange = function () {
 			state.filterItem = this.value;
 			drawSales();

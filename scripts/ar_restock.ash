@@ -13,10 +13,9 @@
 //   2. list whatever is missing from the store;
 //   3. if it is listed at some other price, move it to the parking price.
 //
-// A row already parked correctly is left alone and says so. Nothing is bought
-// unless "mall" is one of your sources, and then only within the maximizer's
-// price terms -- see arLimitsNow() in ar_core.ash for why those are read from
-// the maximizer and never written back to it.
+// A row already parked correctly is left alone and says so. Nothing is ever
+// bought: every source moves something you already own from one place you own
+// to another, so hosting a raffle costs tickets and no meat.
 //
 // Parking, not pricing: between raffles the tickets sit at a price nobody can
 // pay, so announcing one is a single price change rather than a scramble to
@@ -63,30 +62,7 @@ int arGatherFrom(item it, int wanted, string place, arLimits l, arResult r) {
 	// Already in hand is not a fetch; it is the starting point.
 	if (place == "inventory") return 0;
 
-	string shut = arShutBecause(place, it, l);
-
-	if (place == "mall") {
-		if (shut != "") {
-			arNote(r, "skip", place, 0, false, shut);
-			return 0;
-		}
-		int price = it.mall_price();
-		int before = arInHand(it);
-		int got = buy(it, wanted, l.maxPrice);
-		int after = arInHand(it);
-		// buy() answers with how many it bought; the inventory is checked as
-		// well, because a buy that half-succeeds should not be reported as a
-		// whole one.
-		int arrived = after - before;
-		if (arrived < 1) {
-			arNote(r, "skip", place, 0, false,
-				"nothing bought at " + l.maxPrice + " or less");
-			return 0;
-		}
-		arNote(r, "gather", place, arrived, true,
-			"bought at up to " + price + " each");
-		return arrived;
-	}
+	string shut = arShutBecause(place, l);
 
 	int available = arAvailable(it, place);
 	if (available < 1) return 0;
@@ -140,8 +116,8 @@ arResult arRestockOne(item it, arLimits l) {
 		int have = arInHand(it);
 		boolean [string] on = arSources();
 
-		// Nearest first: what is in hand, then the two that cost nothing, then
-		// a Ronin pull, then meat. arAllSources() holds that order.
+		// Nearest first: what is in hand, then the two that cost nothing,
+		// then a Ronin pull. arAllSources() holds that order.
 		foreach i, place in arAllSources() {
 			if (have >= missing) break;
 			if (!(on contains place)) continue;

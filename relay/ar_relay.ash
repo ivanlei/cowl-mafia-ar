@@ -28,8 +28,7 @@ string arSourceJson(arSource s) {
 	out.append("{\"place\":" + arQuoted(s.place));
 	out.append(",\"available\":" + s.available);
 	out.append(",\"enabled\":" + (s.enabled ? "true" : "false"));
-	out.append(",\"shut\":" + arQuoted(s.shut));
-	out.append(",\"price\":" + s.price + "}");
+	out.append(",\"shut\":" + arQuoted(s.shut) + "}");
 	return out.to_string();
 }
 
@@ -69,7 +68,6 @@ string arSaleJson(arSale s) {
 	out.append(",\"name\":" + arQuoted(s.name));
 	out.append(",\"itemId\":" + s.it.to_int());
 	out.append(",\"image\":" + arQuoted(s.it == $item[none] ? "" : s.it.image));
-	out.append(",\"ticket\":" + (arHasTicket(s.it) ? "true" : "false"));
 	out.append(",\"meat\":" + s.meat);
 	out.append(",\"raw\":" + arQuoted(s.raw) + "}");
 	return out.to_string();
@@ -84,14 +82,10 @@ string arSettingsJson() {
 	buffer out;
 	out.append("{\"count\":" + arCount());
 	out.append(",\"parkPrice\":" + arParkPrice());
-	out.append(",\"mallMax\":" + AR_MALL_MAX);
-	out.append(",\"maxPrice\":" + l.maxPrice);
-	out.append(",\"maxPriceFrom\":" + arQuoted(l.maxPriceFrom));
-	out.append(",\"priceLevel\":" + l.priceLevel);
-	out.append(",\"mallOpen\":" + (l.mallOpen ? "true" : "false"));
+	out.append(",\"parkMax\":" + AR_MALL_MAX);
 	out.append(",\"pulls\":" + l.pulls);
+	out.append(",\"caseOpen\":" + (l.caseOpen ? "true" : "false"));
 	out.append(",\"limited\":" + arQuoted(l.limited));
-	out.append(",\"meat\":" + l.meat);
 	out.append(",\"sources\":[");
 	foreach i, place in arAllSources() {
 		if (i > 0) out.append(",");

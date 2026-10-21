@@ -1,7 +1,8 @@
-// ar_sales.ash -- what has sold out of the store.
+// ar_sales.ash -- what has sold, of the items you use as tickets.
 //
-//     ?tickets=1   only the chosen tickets
-//     (otherwise)  everything the store's log holds
+// Only those. The rest of the store is an ordinary sale and has nothing to do
+// with a raffle; mixing the two means scrolling past a week of whatever else
+// you sell to find the eleven lines you read a winner out of.
 //
 // Filtering by item and by buyer happens in the browser, over the whole log,
 // because the lists to filter by are built out of the log itself: asking the
@@ -18,27 +19,25 @@ void main() {
 		return;
 	}
 
-	boolean ticketsOnly = form_field("tickets") == "1";
-	arSale [int] sales = ticketsOnly ? arTicketSales() : arSales();
+	// One read of the store log, filtered two ways: get_shop_log() is a round
+	// trip to KoL, and this used to make two of them.
+	arSale [int] all = arSales();
+	arSale [int] sales = arTicketsAmong(all);
+	int unreadable = arUnreadable(all);
 
 	// The two filter lists, built from what is actually there. A buyer who
 	// bought twice appears once; an item nobody bought does not appear at all.
 	boolean [string] buyers;
 	boolean [string] names;
-	int unparsed = 0;
 	foreach i, s in sales {
-		if (!s.parsed) {
-			unparsed = unparsed + 1;
-			continue;
-		}
 		buyers[s.buyer] = true;
 		names[s.name] = true;
 	}
 
 	buffer out;
 	out.append("{\"ok\":true,\"error\":\"\"");
-	out.append(",\"ticketsOnly\":" + (ticketsOnly ? "true" : "false"));
-	out.append(",\"unparsed\":" + unparsed);
+	out.append(",\"tickets\":" + count(arTickets()));
+	out.append(",\"unreadable\":" + unreadable);
 
 	out.append(",\"buyers\":[");
 	int n = 0;

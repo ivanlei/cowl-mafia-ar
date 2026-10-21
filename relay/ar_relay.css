@@ -156,9 +156,6 @@ button.ar-write {
 .ar-filters select { font: inherit; margin-right: 8px; max-width: 16em; }
 .ar-filters label { margin-right: 12px; }
 
-tr.ar-ticket td { background: #f3f8ff; }
-td.ar-raw { color: #888; font-family: monospace; font-size: 11px; }
-
 /* --- Narrow ------------------------------------------------------------- */
 
 @media (max-width: 560px) {

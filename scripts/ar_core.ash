@@ -28,8 +28,6 @@ string AR_ITEMS = "arTicketItems";
 string AR_COUNT = "arRestockCount";
 string AR_PARK = "arParkPrice";
 string AR_SOURCES = "arSources";
-string AR_PRICE_LEVEL = "arPriceLevel";
-string AR_MAX_PRICE = "arMaxPrice";
 
 // StoreManager.MALL_MAX. Twelve digits, not the nine it looks like it should
 // be, and the number KoL itself refuses to go above.
@@ -164,9 +162,13 @@ int arMinPrice(item it) {
 
 // --- Where restocking may draw from ----------------------------------------
 //
-// Five places, in the order they are drawn from: what is already in hand, then
-// the two that cost nothing, then a Ronin pull, then meat. The order is fixed;
-// what is switched on is yours.
+// Four places, in the order they are drawn from: what is already in hand,
+// then the two that cost nothing, then a Ronin pull. The order is fixed; which
+// of them are switched on is yours.
+//
+// There is deliberately no fifth. Buying tickets would make hosting a raffle
+// something that spends meat, and every one of these moves something you
+// already own from one place you own to another.
 
 string [int] arAllSources() {
 	string [int] places;
@@ -174,7 +176,6 @@ string [int] arAllSources() {
 	places[1] = "closet";
 	places[2] = "display";
 	places[3] = "storage";
-	places[4] = "mall";
 	return places;
 }
 
@@ -185,8 +186,7 @@ boolean arIsSource(string place) {
 	return false;
 }
 
-// The mall is off unless you say otherwise: every other source moves something
-// you already own, and that one spends meat.
+// All of them, since none of them costs anything.
 string AR_SOURCES_DEFAULT = "inventory,closet,display,storage";
 
 boolean [string] arSources() {
@@ -203,56 +203,19 @@ boolean [string] arSources() {
 	return on;
 }
 
-// --- The maximizer's terms, in preferences of this script's own -------------
-//
-// The two controls that decide what buying from the mall is allowed to cost
-// are the maximizer's, laid out its way and meaning what they mean there. They
-// are read from it and never written back to it: MaximizerFrame reads those
-// preferences once when its window is built and never writes them, so they are
-// what Preferences -> Maximizer sets. Writing them from here would change what
-// the maximizer does the next time somebody runs it, which is a thing that
-// spends meat on a different day for a different reason.
-//
-// So an unset setting here falls back to the maximizer's, and the two agree
-// until you change one. Another project's gear_source.ash reached the same
-// conclusion for equipment, the hard way; this is the same rule, restated,
-// because this repository cannot import that one.
+// --- Whether a place will hand something over today ------------------------
 
 record arLimits {
-	int priceLevel;        // 0 don't check the mall, 1 buyable only
-	int maxPrice;          // the most this will pay for one, after the fallback
-	string maxPriceFrom;   // which preference that came from, for the page to say
-
-	boolean mallOpen;      // can_interact(): out of Ronin, so the mall is reachable
 	boolean caseOpen;      // you cannot take things out of a display case in Ronin
 	int pulls;             // -1 unlimited, 0 none left, n in Ronin
 	string limited;        // limit_mode(): "" in ordinary play
-	int meat;
 };
 
 arLimits arLimitsNow() {
 	arLimits l;
-
-	string level = get_property(AR_PRICE_LEVEL);
-	l.priceLevel = (level == "" ? get_property("maximizerPriceLevel") : level).to_int();
-
-	// An unset price and a price of zero are not the same thing: unset means
-	// "whatever the maximizer's field says", zero means the field was emptied,
-	// and both then fall through to the preference the "buy" command uses.
-	string typed = get_property(AR_MAX_PRICE);
-	l.maxPrice = (typed == "" ? get_property("maximizerMaxPrice") : typed).to_int();
-	l.maxPriceFrom = typed == "" ? "maximizerMaxPrice" : AR_MAX_PRICE;
-	if (l.maxPrice <= 0) {
-		l.maxPrice = get_property("autoBuyPriceLimit").to_int();
-		l.maxPriceFrom = "autoBuyPriceLimit";
-	}
-
-	l.mallOpen = can_interact();
 	l.caseOpen = can_interact();
 	l.pulls = pulls_remaining();
 	l.limited = limit_mode();
-	l.meat = my_meat();
-
 	return l;
 }
 
@@ -269,9 +232,6 @@ int arAvailable(item it, string place) {
 		case "closet": return closet_amount(it);
 		case "display": return display_amount(it);
 		case "storage": return storage_amount(it);
-		// Not a count of anything you have. The mall's answer is "as many as
-		// you can pay for", so the row says the price and the restock decides.
-		case "mall": return 0;
 	}
 	return 0;
 }
@@ -280,7 +240,7 @@ int arAvailable(item it, string place) {
 //
 // Said rather than hidden, the way the Hat Table says it: an item in the case
 // is still worth knowing about in Ronin, it just isn't worth clicking.
-string arShutBecause(string place, item it, arLimits l) {
+string arShutBecause(string place, arLimits l) {
 	if (l.limited != "") return "not while " + l.limited;
 
 	switch (place) {
@@ -292,16 +252,6 @@ string arShutBecause(string place, item it, arLimits l) {
 			// -1 is unlimited, out of Ronin. 0 is Hardcore, or a Ronin day
 			// already spent.
 			return l.pulls == 0 ? "no pulls left today" : "";
-		case "mall":
-			if (!l.mallOpen) return "the mall is shut in Ronin";
-			if (!it.is_tradeable()) return "not tradeable";
-			if (l.priceLevel == 0) return "mall prices are switched off";
-			int price = it.mall_price();
-			if (price <= 0) return "no mall price";
-			if (price > l.maxPrice) {
-				return "over your limit (" + l.maxPrice + ", " + l.maxPriceFrom + ")";
-			}
-			return "";
 	}
 	return "";
 }
@@ -310,10 +260,9 @@ string arShutBecause(string place, item it, arLimits l) {
 
 record arSource {
 	string place;
-	int available;      // how many that place holds; 0 for the mall, see above
+	int available;      // how many that place holds
 	boolean enabled;    // whether your settings let restock use it
 	string shut;        // why it cannot be used now, or ""
-	int price;          // the mall's, for the mall; 0 elsewhere
 };
 
 record arRow {
@@ -358,6 +307,10 @@ arRow arRowFor(item it, arLimits l) {
 	if (r.shortfall < 0) r.shortfall = 0;
 	r.parked = r.inStore >= r.want && r.storePrice == arParkPrice();
 
+	// What it goes for, which is the whole question about a ticket: a ticket
+	// is an item worth more than it is being sold for. Looking a price up is
+	// not buying anything -- nothing here spends meat -- but it is a mall
+	// search, so it is read once per row and not per keystroke.
 	r.mallPrice = it.is_tradeable() ? it.mall_price() : 0;
 	r.minPrice = arMinPrice(it);
 	r.tradeable = it.is_tradeable();
@@ -369,8 +322,7 @@ arRow arRowFor(item it, arLimits l) {
 		s.place = place;
 		s.available = arAvailable(it, place);
 		s.enabled = on contains place;
-		s.shut = arShutBecause(place, it, l);
-		s.price = place == "mall" ? r.mallPrice : 0;
+		s.shut = arShutBecause(place, l);
 		r.sources[count(r.sources)] = s;
 
 		if (s.enabled && s.shut == "") r.reachable = r.reachable + s.available;
@@ -450,17 +402,33 @@ arSale [int] arSales() {
 
 // Only the tickets, which is what a raffle is about; everything else in the
 // store is an ordinary sale.
-arSale [int] arTicketSales() {
+//
+// Takes the log rather than reading it, because every caller also wants to
+// count the lines that could not be read, and get_shop_log() is a
+// ManageStoreRequest -- a round trip to KoL. Reading it twice per command was
+// two trips and two "Examining store logs..." in the gCLI.
+arSale [int] arTicketsAmong(arSale [int] all) {
 	boolean [item] chosen;
 	foreach i, it in arTickets() chosen[it] = true;
 
 	arSale [int] kept;
-	foreach i, s in arSales() {
+	foreach i, s in all {
 		if (!s.parsed) continue;
 		if (!(chosen contains s.it)) continue;
 		kept[count(kept)] = s;
 	}
 	return kept;
+}
+
+// How many lines of a log could not be read at all. Worth saying out loud:
+// one of them could have been a ticket sale, and leaving them out silently
+// would be reporting that there were none.
+int arUnreadable(arSale [int] all) {
+	int n = 0;
+	foreach i, s in all {
+		if (!s.parsed) n = n + 1;
+	}
+	return n;
 }
 
 // --- JSON ------------------------------------------------------------------

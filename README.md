@@ -25,8 +25,16 @@ you are. **Restock** gathers the shortfall, lists it, and parks it at a price
 nobody can pay — so that announcing a raffle later is one price change rather
 than a scramble to list a dozen items while `/games` waits.
 
-**Sales.** Your store's sales log, newest first, filtered by item or by buyer.
-Ticket sales are highlighted. This is the log you read the winner out of.
+**Nothing here buys anything.** Every source moves something you already own
+from one place you own to another, so hosting a raffle costs tickets and no
+meat. The mall price is shown against each ticket, because an item worth more
+than it sells for is the whole definition of one — but it is read, never used
+to spend.
+
+**Sales.** Sales of your tickets, newest first, filtered by item or by buyer.
+Only your tickets: this is the log you read the winner out of, and the rest of
+your store is an ordinary sale. If a line of KoL's log cannot be read, the page
+says how many rather than quietly leaving them out.
 
 It does **not** announce, roll, pick the winner or send the prize. That half is
 still yours.
@@ -36,15 +44,18 @@ still yours.
 In the relay browser, **Scripts → Anti Raffle**. Or from the gCLI:
 
 ```
-ar                     what you have chosen, and what is in the store
+ar, ar help            the commands below
 ar items               the chosen tickets
 ar add <item>          choose one
 ar remove <item>       unchoose one
 ar stock               the store, source by source
 ar restock [item]      list and park -- the one command that writes
 ar count [n]           how many of each to hold (default 11)
-ar sources [list]      where restocking may draw from
-ar sales [filter]      what has sold, by item or buyer
+ar sources             where restocking may draw from
+ar sources add <place>       switch one on
+ar sources remove <place>    switch one off
+ar sources <list>            set them all at once
+ar sales [filter]      ticket sales, by item or buyer
 ```
 
 The page and the command answer out of the same functions, so they cannot
@@ -61,15 +72,8 @@ Ordinary KoLmafia preferences. Change them on the page, with `ar count` and
 | `arRestockCount` | `11` | how many of each to hold |
 | `arParkPrice` | `999999999999` | the price restock parks at (KoL's ceiling) |
 | `arSources` | `inventory,closet,display,storage` | where restocking may draw from |
-| `arPriceLevel` | unset | falls back to `maximizerPriceLevel` |
-| `arMaxPrice` | unset | falls back to `maximizerMaxPrice`, then `autoBuyPriceLimit` |
 
-`mall` is not a default source, because every other one moves something you
-already own and that one spends meat. Switch it on and restocking will buy the
-shortfall, on the maximizer's terms: the two price controls above are read from
-the maximizer and **never written back to it**, since `MaximizerFrame` reads
-those preferences once when its window is built and writing them from here
-would quietly change what the maximizer does the next time somebody runs it.
+Those four are all of them. There is no fifth that buys.
 
 ## Install
 

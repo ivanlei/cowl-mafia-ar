@@ -52,8 +52,9 @@ void main() {
 	out.append("</div>\n");
 
 	out.append("<div class='ar-panel' id='ar-panel-sales'>\n");
+	// No "everything" switch: the sales tab is the ticket sales, because that
+	// is the list a winner gets read out of.
 	out.append("<div class='ar-filters'>");
-	out.append("<label><input type='checkbox' id='ar-tickets-only'> Tickets only</label>");
 	out.append("<select id='ar-by-item'></select>");
 	out.append("<select id='ar-by-buyer'></select>");
 	out.append("</div>\n");
