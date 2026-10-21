@@ -207,33 +207,52 @@
 	// What you hold, for the dropdown. Rebuilt after every add, because an
 	// item that is now a ticket is no longer one to offer.
 	function drawHeld() {
-		var select = document.getElementById('ar-held');
+		var list = document.getElementById('ar-held-list');
+		var box = document.getElementById('ar-held');
 		var add = document.getElementById('ar-add');
-		select.textContent = '';
+		list.textContent = '';
 
 		if (!state.held.length) {
-			var none = el('option', null,
-				'Nothing you hold can go in the mall');
-			none.value = '';
-			select.appendChild(none);
-			select.disabled = true;
+			box.value = '';
+			box.placeholder = 'Nothing you hold can go in the mall';
+			box.disabled = true;
 			add.disabled = true;
 			return;
 		}
 
-		select.disabled = false;
+		box.disabled = false;
 		add.disabled = false;
+		box.placeholder = 'Type or pick one of ' + state.held.length + ' items you hold';
 
-		// localeCompare, so an accent sorts where you would look for it:
+		// The option's value is the bare name, because in a datalist the value
+		// is what lands in the box when you pick it -- anything else and you
+		// would be typing over "name -- 85 in inventory, closet" to correct it.
+		// localeCompare, so an accented name sorts where you would look for it:
 		// Pok\u00e9-Gro belongs with the P's and not after Z.
 		state.held.slice().sort(function (a, b) {
 			return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
 		}).forEach(function (item) {
-			var option = el('option', null,
-				item.name + ' \u2014 ' + item.have + ' in ' + item.places);
-			option.value = item.id;
-			select.appendChild(option);
+			var option = document.createElement('option');
+			option.value = item.name;
+			list.appendChild(option);
 		});
+	}
+
+	// What you typed, as an item. Case and surrounding space are forgiven;
+	// anything else has to be a name on the list, since the id is looked up
+	// from it and a name that is not there has no id to find.
+	function heldByName(typed) {
+		var want = String(typed || '').replace(/^\s+|\s+$/g, '').toLowerCase();
+		if (!want) return null;
+		var found = state.held.filter(function (item) {
+			return item.name.toLowerCase() === want;
+		});
+		// Two held items can share a name -- KoLmafia writes "[2325]Staff of
+		// Ed" for exactly that reason, and the prefix is stripped for reading.
+		// Picking one of them silently would be picking the wrong one half the
+		// time.
+		if (found.length > 1) return { ambiguous: found.length };
+		return found[0] || null;
 	}
 
 	function loadHeld(then) {
@@ -614,21 +633,38 @@
 			tabs[i].onclick = function () { show(this.getAttribute('data-tab')); };
 		}
 
-		document.getElementById('ar-add').onclick = function () {
-			var select = document.getElementById('ar-held');
-			var id = select.value;
-			if (!id) return;
-			var label = select.options[select.selectedIndex].textContent;
+		function addTyped() {
+			var box = document.getElementById('ar-held');
+			var found = heldByName(box.value);
+			if (!found) {
+				say(box.value.replace(/^\s+|\s+$/g, '')
+					? 'You hold nothing by that name that could go in the mall.'
+					: 'Type or pick an item first.', 'err');
+				return;
+			}
+			if (found.ambiguous) {
+				say('You hold ' + found.ambiguous + ' different items called that. '
+					+ 'Use `ar add <id>` in the gCLI to say which.', 'err');
+				return;
+			}
 			say('Adding\u2026', 'busy');
-			ask('/ar_items.ash', { add: id }, function (answer) {
+			ask('/ar_items.ash', { add: found.id }, function (answer) {
 				state.items = answer.items;
 				state.settings = answer.settings;
+				box.value = '';
 				drawChosen();
-				// The dropdown is now one item shorter; asking again is one
-				// request against keeping two lists in step by hand.
+				// The list is now one item shorter; asking again is one request
+				// against keeping two copies in step by hand.
 				loadHeld();
-				say(label.split(' \u2014 ')[0] + ' is now a ticket.', 'done');
+				say(found.name + ' is now a ticket.', 'done');
 			});
+		}
+
+		document.getElementById('ar-add').onclick = addTyped;
+		document.getElementById('ar-held').onkeydown = function (e) {
+			// Return is what you press after typing a name; making it reload
+			// the page would be the one thing it must not do.
+			if (e.keyCode === 13) { e.preventDefault(); addTyped(); }
 		};
 
 		// Asked first, and in its own words: this throws away whatever you had

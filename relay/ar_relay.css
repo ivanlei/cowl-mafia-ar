@@ -118,19 +118,19 @@ table.ar img.icon { width: 30px; height: 30px; vertical-align: middle; }
 	align-items: center;
 }
 
-/* Wide enough for "name -- 12 in inventory, closet" without the native picker
- * cutting it off, and it still shrinks on a narrow pane. */
+/* Wide enough for a long item name, and it still shrinks on a narrow pane. */
 #ar-held {
 	font: inherit;
 	padding: 7px;
 	flex: 1 1 260px;
-	max-width: 520px;
+	max-width: 420px;
+	box-sizing: border-box;
 	border: 1px solid #999;
 	border-radius: 3px;
 	background: #fff;
 }
 
-#ar-held:disabled { color: #888; }
+#ar-held:disabled { color: #888; background: #f3f3f3; }
 
 
 

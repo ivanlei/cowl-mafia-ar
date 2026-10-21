@@ -43,12 +43,16 @@ void main() {
 	out.append("<button class='ar-go' id='ar-defaults'>Use default item list</button>");
 	out.append("</div>\n");
 
-	// A dropdown of what you hold rather than a box you type a name into: the
-	// old box answered with a table that looked exactly like the list of
-	// tickets below it, so the page showed you two tables and left you to work
-	// out which one you were reading.
+	// A box and a list at once: <datalist> is the native combo, so you can type
+	// a name and have it narrow as you go, or open the list and pick one. It
+	// holds what you hold and could put in the mall, which is the list worth
+	// having -- the box this replaced searched the whole game and answered
+	// with a table that looked exactly like the ticket list under it.
 	out.append("<div class='ar-row'>");
-	out.append("<select id='ar-held'></select>");
+	out.append("<input type='text' id='ar-held' list='ar-held-list'"
+		+ " autocomplete='off' spellcheck='false'"
+		+ " placeholder='Type or pick an item you hold'>");
+	out.append("<datalist id='ar-held-list'></datalist>");
 	out.append("<button class='ar-go' id='ar-add'>Add</button>");
 	out.append("</div>\n");
 	out.append("<div id='ar-chosen'></div>\n");
