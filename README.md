@@ -22,7 +22,7 @@ every time the tab opens, so it is whatever you hold now. Return adds, as does
 the button. The gCLI's `ar add` takes any item by name or id, held or not. They are kept as item ids, so a
 rename or a comma in a name cannot break the list.
 
-**Default items** on that tab, or `ar defaultitems`, fills the list with **72
+**Default items** on that tab, or `ar defaultitems`, fills the list with **75
 items** that make reasonable tickets — all tradeable, all worth more than the
 minimum price they can be sold at, spread across food, drink, one-day passes,
 the pastes and a few oddities. Then cut it down to the handful you actually

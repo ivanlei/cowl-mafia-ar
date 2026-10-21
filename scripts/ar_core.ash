@@ -67,7 +67,7 @@ string arJoin(string [int] parts, string separator) {
 
 // --- The list a fresh install starts with ----------------------------------
 //
-// Seventy-two items that make reasonable tickets. Every one of them is
+// Seventy-five items that make reasonable tickets. Every one of them is
 // tradeable, and every one was worth more than the minimum price it can be
 // sold at when this was written -- checked against KoLmafia's own historical
 // prices, since an item worth more than it sells for is the whole definition
@@ -88,29 +88,31 @@ string [int] arDefaultTicketIds() {
 	string [int] ids;
 	void add(int id) { ids[count(ids)] = id.to_string(); }
 
-	add(10740);   // battery (AA)
-	add( 6537);   // blood sausage
+	add(10881);   // 11-leaf clover
+	add( 9991);   // absentee voter ballot
+	add( 4001);   // agua de vida
+	add( 7045);   // antimatter wad
+	add( 9879);   // bad rum and good cola
+	add(10744);   // battery (car)
+	add( 8545);   // blood-drive sticker
 	add( 1416);   // blue snowcone
 	add( 1624);   // blue-frosted astral cupcake
-	add( 5232);   // borrowed time
 	add( 5226);   // box of Familiar Jacks
 	add(10056);   // Boxing Day Pass
+	add( 5227);   // bucket of wine
 	add( 1593);   // cold hi mein
+	add( 5260);   // cold-filtered water
+	add( 3028);   // Corpse Island iced tea
 	add( 9204);   // counterfeit city
 	add(10070);   // Crimboysters Rockefeller
 	add(11738);   // crystallized pumpkin spice
-	add( 5748);   // CSA all-purpose soap
 	add( 8635);   // cuppa Royal tea
 	add( 8634);   // cuppa Sobrie tea
 	add( 8633);   // cuppa Voraci tea
-	add( 2424);   // cyclops eyedrops
 	add( 9479);   // Daily Affirmation: Always be Collecting
-	add( 9485);   // Daily Affirmation: Keep Free Hate in your Heart
 	add(11346);   // day shortener
 	add( 5206);   // demonic paste
-	add( 8822);   // Doc Clock's thyme cocktail
 	add( 6565);   // Dreadsylvanian cold pocket
-	add( 6572);   // Dreadsylvanian dank and stormy
 	add( 6573);   // Dreadsylvanian slithery nipple
 	add( 5201);   // ectoplasmic paste
 	add( 5216);   // elemental paste
@@ -118,17 +120,18 @@ string [int] arDefaultTicketIds() {
 	add( 4609);   // essential tofu
 	add(11347);   // extra time
 	add( 3327);   // extra-greasy slider
-	add( 9269);   // fancy chocolate sculpture
-	add( 9836);   // FantasyRealm guest pass
-	add( 7073);   // frost flower
+	add( 7101);   // Five Second Energy™
 	add( 3324);   // Frosty's frosty mug
-	add( 8640);   // Ghost Dog Chow
+	add( 5459);   // fudge spork
 	add( 8392);   // gift card
 	add( 5209);   // goblin paste
 	add( 5198);   // gooey paste
 	add( 5202);   // greasy paste
 	add( 1625);   // green-frosted astral cupcake
 	add( 7065);   // grim fairy tale
+	add( 7061);   // grimstone mask
+	add( 5379);   // groose grease
+	add( 9036);   // hacked gibson
 	add( 1592);   // hot hi mein
 	add( 8698);   // iced plum wine
 	add( 3325);   // jar of fermented pickle juice
@@ -163,6 +166,7 @@ string [int] arDefaultTicketIds() {
 
 	return ids;
 }
+
 
 item [int] arTickets() {
 	item [int] chosen;
