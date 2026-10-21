@@ -1,0 +1,168 @@
+/* ar_relay.css -- the Anti-Raffle page.
+ *
+ * Sized for an iPad in the relay browser first, which is where this gets used:
+ * rows tall enough to tap, nothing depending on hover, and tables that stay
+ * readable when the pane is half a screen wide.
+ *
+ * KoL's own relay pages inherit a 13px Arial from its stylesheets; this page
+ * is served on its own and has none of that, so it sets its own. */
+
+body {
+	margin: 0;
+	padding: 8px;
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 13px;
+	color: #000;
+	background: #fff;
+}
+
+#ar { max-width: 1100px; }
+
+/* --- Tabs --------------------------------------------------------------- */
+
+#ar-tabs {
+	display: flex;
+	gap: 4px;
+	border-bottom: 2px solid #ccc;
+	margin-bottom: 8px;
+}
+
+.ar-tab {
+	font: inherit;
+	padding: 8px 14px;
+	border: 1px solid #ccc;
+	border-bottom: none;
+	background: #f0f0f0;
+	cursor: pointer;
+	border-radius: 4px 4px 0 0;
+}
+
+.ar-tab.on {
+	background: #fff;
+	border-color: #999;
+	font-weight: bold;
+	/* Over the container's own border, so the open tab joins the panel. */
+	margin-bottom: -2px;
+	padding-bottom: 10px;
+}
+
+.ar-panel { display: none; }
+.ar-panel.on { display: block; }
+
+/* --- Saying something --------------------------------------------------- */
+
+#ar-note {
+	min-height: 1.4em;
+	margin-bottom: 6px;
+}
+
+#ar-note.err { color: #a00; font-weight: bold; }
+#ar-note.busy { color: #666; }
+#ar-note.done { color: #070; }
+
+/* --- Tables ------------------------------------------------------------- */
+
+table.ar {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+table.ar th {
+	text-align: left;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #555;
+	border-bottom: 1px solid #ccc;
+	padding: 4px;
+}
+
+table.ar td {
+	padding: 6px 4px;
+	border-bottom: 1px solid #eee;
+	vertical-align: middle;
+}
+
+table.ar td.num, table.ar th.num { text-align: right; }
+table.ar img.icon { width: 30px; height: 30px; vertical-align: middle; }
+
+.ar-id { color: #888; font-size: 11px; }
+.ar-dim { color: #888; }
+.ar-shut { color: #a00; }
+.ar-parked { color: #070; font-weight: bold; }
+.ar-short { color: #a60; font-weight: bold; }
+
+/* --- Finding an item ---------------------------------------------------- */
+
+.ar-search { margin-bottom: 6px; }
+
+#ar-q {
+	font: inherit;
+	padding: 8px;
+	width: 100%;
+	max-width: 420px;
+	box-sizing: border-box;
+	border: 1px solid #999;
+	border-radius: 3px;
+}
+
+#ar-found table.ar { margin-bottom: 12px; }
+
+/* --- Buttons ------------------------------------------------------------ */
+
+button.ar-go {
+	font: inherit;
+	padding: 6px 12px;
+	border: 1px solid #999;
+	border-radius: 3px;
+	background: #f6f6f6;
+	cursor: pointer;
+}
+
+button.ar-go:disabled { color: #999; cursor: default; }
+
+/* Restock is the only control on the page that changes anything, so it does
+ * not look like the ones that don't. */
+button.ar-write {
+	border-color: #a60;
+	background: #fff6e8;
+	font-weight: bold;
+}
+
+/* --- Settings ----------------------------------------------------------- */
+
+#ar-settings {
+	margin-bottom: 10px;
+	padding: 8px;
+	background: #f7f7f7;
+	border: 1px solid #e0e0e0;
+	border-radius: 3px;
+}
+
+#ar-settings label { margin-right: 14px; white-space: nowrap; }
+#ar-settings input[type=number] { font: inherit; width: 7em; padding: 3px; }
+#ar-settings .ar-sources label { margin-right: 10px; }
+#ar-settings .ar-note { color: #666; margin-top: 6px; }
+
+/* --- What a restock did ------------------------------------------------- */
+
+#ar-steps { margin-top: 12px; }
+#ar-steps .ar-step { padding: 2px 0; }
+#ar-steps .ar-step.bad { color: #a60; }
+
+/* --- Sales -------------------------------------------------------------- */
+
+.ar-filters { margin-bottom: 8px; }
+.ar-filters select { font: inherit; margin-right: 8px; max-width: 16em; }
+.ar-filters label { margin-right: 12px; }
+
+tr.ar-ticket td { background: #f3f8ff; }
+td.ar-raw { color: #888; font-family: monospace; font-size: 11px; }
+
+/* --- Narrow ------------------------------------------------------------- */
+
+@media (max-width: 560px) {
+	table.ar td, table.ar th { padding: 4px 2px; }
+	.ar-tab { padding: 8px 10px; }
+	.ar-hide-narrow { display: none; }
+}
