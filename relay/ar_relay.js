@@ -165,7 +165,7 @@
 
 		var t = table([
 			{ text: '' }, { text: 'Ticket' },
-			{ text: 'Mall', num: true }, { text: 'Min', num: true },
+			{ text: 'Min', num: true },
 			{ text: 'In store', num: true }, { text: '' }
 		]);
 
@@ -179,7 +179,6 @@
 			name.appendChild(el('span', 'ar-id', '[id:' + row.id + ']'));
 			tr.appendChild(name);
 
-			cell(tr, row.tradeable ? meat(row.mallPrice) : '—', 'num');
 			cell(tr, meat(row.minPrice), 'num');
 			cell(tr, row.inStore + ' of ' + row.want, 'num');
 
@@ -362,7 +361,7 @@
 
 		var t = table([
 			{ text: '' }, { text: 'Ticket' }, { text: 'In store' },
-			{ text: 'Need', num: true }, { text: 'You have', num: true },
+			{ text: 'Will stock', num: true }, { text: 'You have', num: true },
 			{ text: 'In' }, { text: '' }
 		]);
 

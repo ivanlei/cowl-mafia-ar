@@ -422,11 +422,17 @@ arRow arRowFor(item it, arLimits l) {
 	if (r.shortfall < 0) r.shortfall = 0;
 	r.parked = r.inStore >= r.want && r.storePrice == arParkPrice();
 
-	// What it goes for, which is the whole question about a ticket: a ticket
-	// is an item worth more than it is being sold for. Looking a price up is
-	// not buying anything -- nothing here spends meat -- but it is a mall
-	// search, so it is read once per row and not per keystroke.
-	r.mallPrice = it.is_tradeable() ? it.mall_price() : 0;
+	// What it goes for, which is the question about a ticket: a ticket is an
+	// item worth more than it is being sold for.
+	//
+	// historical_price(), never mall_price(). mall_price() searches the mall
+	// when its cached answer is stale, and this is called once per ticket --
+	// so with the shipped list loaded, pressing Remove fired up to
+	// seventy-five mall searches at KoL, each with KoLmafia's delay between
+	// requests, to redraw a table. Warm that call took 34ms; cold it took
+	// minutes. historical_price() reads the prices KoLmafia has already saved
+	// and never goes near the network. 0 when it has never seen one.
+	r.mallPrice = it.is_tradeable() ? it.historical_price() : 0;
 	r.minPrice = arMinPrice(it);
 	r.tradeable = it.is_tradeable();
 

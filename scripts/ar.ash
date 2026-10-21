@@ -74,7 +74,8 @@ void arShowItems() {
 		out.append("<tr><td><img src=\"/images/itemimages/" + r.image
 			+ "\" width=30 height=30></td>");
 		out.append("<td>" + r.name + " <font color=gray>[id:" + r.id + "]</font></td>");
-		out.append("<td align=right>" + (r.tradeable ? r.mallPrice.to_string() : "&mdash;") + "</td>");
+		out.append("<td align=right>"
+			+ (r.tradeable && r.mallPrice > 0 ? r.mallPrice.to_string() : "&mdash;") + "</td>");
 		out.append("<td align=right>" + r.minPrice + "</td>");
 		out.append("<td align=right>" + r.inStore + " of " + r.want + "</td></tr>");
 	}
@@ -96,7 +97,7 @@ void arShowStock() {
 	buffer out;
 	out.append("<table border=0 cellpadding=2>");
 	out.append("<tr><td><b>ticket</b></td><td><b>store</b></td>"
-		+ "<td><b>need</b></td><td><b>can reach</b></td><td><b>where</b></td></tr>");
+		+ "<td><b>will stock</b></td><td><b>you have</b></td><td><b>in</b></td></tr>");
 
 	foreach i, r in rows {
 		string where = "";
