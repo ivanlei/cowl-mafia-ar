@@ -35,6 +35,13 @@ int AR_MALL_MAX = 999999999999;
 
 int AR_COUNT_DEFAULT = 11;
 
+// One each. A per-person limit is half the definition of an anti-raffle -- the
+// other half being a price under what the item is worth -- so it is set when
+// the ticket goes into the store and left there, rather than remembered for
+// the moment a raffle opens. Announcing one stays the single price change the
+// parking price is for.
+int AR_TICKET_LIMIT = 1;
+
 // Eleven tickets is the common number, and ten is the other one. Nothing here
 // enforces either: the wiki says to use more when /games is busy.
 

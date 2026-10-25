@@ -35,8 +35,8 @@ cannot be emptied.
 **Stock.** How many of each to stock and what to park them at, which sources
 restocking may draw from, and for each ticket: how many are listed, at what price and limit, how
 many each place you keep things could supply, and how far short of your target
-you are. **Restock** gathers the shortfall, lists it, and parks it at a price
-nobody can pay — so that announcing a raffle later is one price change rather
+you are. **Restock** gathers the shortfall, lists it one-per-person, and parks it at
+a price nobody can pay — so that announcing a raffle later is one price change rather
 than a scramble to list a dozen items while `/games` waits.
 
 **Nothing here buys anything.** Every source moves something you already own
