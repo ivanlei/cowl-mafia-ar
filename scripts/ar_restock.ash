@@ -104,10 +104,16 @@ arResult arRestockOne(item it, arLimits l) {
 	// to. See arRowFor() in ar_core.ash.
 	int price = inStore > 0 ? it.shop_price() : 0;
 
+	int limit = inStore > 0 ? it.shop_limit() : 0;
+
 	// Already right. Said out loud rather than passed over in silence, so that
 	// a restock which did nothing reads as a restock which did not need to.
-	if (inStore >= want && price == park) {
-		arNote(r, "skip", "", 0, true, "already " + inStore + " parked at " + park);
+	// The limit counts as part of being right: a listing made before tickets
+	// carried one is at the parking price already, and would never be touched
+	// again if only the price were checked.
+	if (inStore >= want && price == park && limit == AR_TICKET_LIMIT) {
+		arNote(r, "skip", "", 0, true, "already " + inStore + " parked at " + park
+			+ ", limit " + limit);
 		return r;
 	}
 
@@ -126,12 +132,12 @@ arResult arRestockOne(item it, arLimits l) {
 
 		int listing = min(missing, have);
 		if (listing > 0) {
-			// put_shop() prices and limits in the same call. The limit stays 0
-			// while parked: a limit is what makes a ticket one-per-person, and
-			// a parked item is not a ticket yet.
-			boolean put = put_shop(park, 0, listing, it);
+			// put_shop() prices and limits in the same call, so the ticket
+			// gets its one-per-person limit as it goes in rather than at the
+			// moment a raffle opens. See AR_TICKET_LIMIT.
+			boolean put = put_shop(park, AR_TICKET_LIMIT, listing, it);
 			arNote(r, "list", "", listing, put,
-				put ? "at " + park : "put_shop refused");
+				put ? "at " + park + ", limit " + AR_TICKET_LIMIT : "put_shop refused");
 			if (put) inStore = inStore + listing;
 		}
 		if (have < missing) {
@@ -140,13 +146,19 @@ arResult arRestockOne(item it, arLimits l) {
 		}
 	}
 
-	// Whatever is in there now, at the parking price. Done after listing, so
-	// an item that was already in the store at the wrong price gets moved once
-	// rather than twice.
-	if (inStore > 0 && it.shop_price() != park) {
-		boolean moved = reprice_shop(park, 0, it);
+	// Whatever is in there now, at the parking price and the ticket limit.
+	// Done after listing, so an item that was already in the store wrong gets
+	// moved once rather than twice.
+	//
+	// The limit is in the test as well as the call because reprice_shop() sets
+	// both: passing the limit it already has would be a no-op, but passing the
+	// one it should have is how a listing from before this gets fixed. The
+	// two-argument reprice_shop() keeps the existing limit instead, which is
+	// exactly what must not happen here.
+	if (inStore > 0 && (it.shop_price() != park || it.shop_limit() != AR_TICKET_LIMIT)) {
+		boolean moved = reprice_shop(park, AR_TICKET_LIMIT, it);
 		arNote(r, "reprice", "", inStore, moved,
-			moved ? "to " + park : "reprice_shop refused");
+			moved ? "to " + park + ", limit " + AR_TICKET_LIMIT : "reprice_shop refused");
 	}
 
 	return r;
