@@ -7,13 +7,47 @@
  * KoL's own relay pages inherit a 13px Arial from its stylesheets; this page
  * is served on its own and has none of that, so it sets its own. */
 
+/* Light and dark, and self-contained.
+ *
+ * This page is served on its own rather than decorated into one of KoL's, so
+ * it carries no stylesheet but this one -- which means the switch has to be
+ * here too. `color-scheme` is what makes light-dark() pick a half and what
+ * gets the checkboxes, the text boxes and the scrollbar drawn dark; without it
+ * a dark page would keep white native controls.
+ *
+ * The light half of every pair is the colour that was here before, so light
+ * mode is unchanged by construction and only the dark halves are new. */
+:root {
+	color-scheme: light dark;
+
+	--ar-page:       light-dark(#fff, #000);
+	--ar-ink:        light-dark(#000, #d6d9dd);
+	--ar-surface:    light-dark(#fff, #15171b);
+	--ar-panel:      light-dark(#f7f7f7, #15171b);
+	--ar-panel-edge: light-dark(#e0e0e0, #2a2e35);
+	--ar-tab:        light-dark(#f0f0f0, #1c2026);
+	--ar-edge:       light-dark(#ccc, #434a53);
+	--ar-edge-firm:  light-dark(#999, #5b626c);
+	--ar-rule-soft:  light-dark(#eee, #2f343c);
+	--ar-quiet:      light-dark(#555, #9199a1);
+	--ar-grey:       light-dark(#666, #9199a1);
+	--ar-faint:      light-dark(#888, #878d95);
+	--ar-err:        light-dark(#a00, #f0756d);
+	--ar-ok:         light-dark(#070, #5fab5f);
+	--ar-warn:       light-dark(#a60, #e0a458);
+	--ar-btn:        light-dark(#fff6e8, #2a2219);
+	--ar-btn-edge:   light-dark(#a60, #b5833f);
+	--ar-off:        light-dark(#f6f6f6, #1a1d22);
+	--ar-off-soft:   light-dark(#f3f3f3, #1a1d22);
+}
+
 body {
 	margin: 0;
 	padding: 8px;
 	font-family: Arial, Helvetica, sans-serif;
 	font-size: 13px;
-	color: #000;
-	background: #fff;
+	color: var(--ar-ink);
+	background: var(--ar-page);
 }
 
 #ar { max-width: 1100px; }
@@ -23,23 +57,23 @@ body {
 #ar-tabs {
 	display: flex;
 	gap: 4px;
-	border-bottom: 2px solid #ccc;
+	border-bottom: 2px solid var(--ar-edge);
 	margin-bottom: 8px;
 }
 
 .ar-tab {
 	font: inherit;
 	padding: 8px 14px;
-	border: 1px solid #ccc;
+	border: 1px solid var(--ar-edge);
 	border-bottom: none;
-	background: #f0f0f0;
+	background: var(--ar-tab);
 	cursor: pointer;
 	border-radius: 4px 4px 0 0;
 }
 
 .ar-tab.on {
-	background: #fff;
-	border-color: #999;
+	background: var(--ar-page);
+	border-color: var(--ar-edge-firm);
 	font-weight: bold;
 	/* Over the container's own border, so the open tab joins the panel. */
 	margin-bottom: -2px;
@@ -56,9 +90,9 @@ body {
 	margin-bottom: 6px;
 }
 
-#ar-note.err { color: #a00; font-weight: bold; }
-#ar-note.busy { color: #666; }
-#ar-note.done { color: #070; }
+#ar-note.err { color: var(--ar-err); font-weight: bold; }
+#ar-note.busy { color: var(--ar-grey); }
+#ar-note.done { color: var(--ar-ok); }
 
 /* --- Tables ------------------------------------------------------------- */
 
@@ -72,14 +106,14 @@ table.ar th {
 	font-size: 11px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
-	color: #555;
-	border-bottom: 1px solid #ccc;
+	color: var(--ar-quiet);
+	border-bottom: 1px solid var(--ar-edge);
 	padding: 4px;
 }
 
 table.ar td {
 	padding: 6px 4px;
-	border-bottom: 1px solid #eee;
+	border-bottom: 1px solid var(--ar-rule-soft);
 	vertical-align: middle;
 }
 
@@ -95,16 +129,16 @@ table.ar th.ar-sortable {
 	user-select: none;
 }
 
-table.ar th.ar-sortable:hover { color: #000; }
-table.ar th.ar-sortable.on { color: #000; text-decoration-style: solid; }
+table.ar th.ar-sortable:hover { color: var(--ar-ink); }
+table.ar th.ar-sortable.on { color: var(--ar-ink); text-decoration-style: solid; }
 .ar-arrow { font-size: 9px; }
 table.ar img.icon { width: 30px; height: 30px; vertical-align: middle; }
 
-.ar-id { color: #888; font-size: 11px; }
-.ar-dim { color: #888; }
-.ar-shut { color: #a00; }
-.ar-parked { color: #070; font-weight: bold; }
-.ar-short { color: #a60; font-weight: bold; }
+.ar-id { color: var(--ar-faint); font-size: 11px; }
+.ar-dim { color: var(--ar-faint); }
+.ar-shut { color: var(--ar-err); }
+.ar-parked { color: var(--ar-ok); font-weight: bold; }
+.ar-short { color: var(--ar-warn); font-weight: bold; }
 
 /* --- Finding an item ---------------------------------------------------- */
 
@@ -125,12 +159,12 @@ table.ar img.icon { width: 30px; height: 30px; vertical-align: middle; }
 	flex: 1 1 260px;
 	max-width: 420px;
 	box-sizing: border-box;
-	border: 1px solid #999;
+	border: 1px solid var(--ar-edge-firm);
 	border-radius: 3px;
-	background: #fff;
+	background: var(--ar-surface);
 }
 
-#ar-held:disabled { color: #888; background: #f3f3f3; }
+#ar-held:disabled { color: var(--ar-faint); background: var(--ar-off-soft); }
 
 
 
@@ -141,17 +175,17 @@ table.ar img.icon { width: 30px; height: 30px; vertical-align: middle; }
 button.ar-go {
 	font: inherit;
 	padding: 6px 12px;
-	border: 1px solid #a60;
+	border: 1px solid var(--ar-btn-edge);
 	border-radius: 3px;
-	background: #fff6e8;
+	background: var(--ar-btn);
 	font-weight: bold;
 	cursor: pointer;
 }
 
 button.ar-go:disabled {
-	color: #999;
-	border-color: #ccc;
-	background: #f6f6f6;
+	color: var(--ar-faint);
+	border-color: var(--ar-edge);
+	background: var(--ar-off);
 	font-weight: normal;
 	cursor: default;
 }
@@ -165,8 +199,8 @@ button.ar-write { }
 #ar-settings {
 	margin-bottom: 10px;
 	padding: 8px;
-	background: #f7f7f7;
-	border: 1px solid #e0e0e0;
+	background: var(--ar-panel);
+	border: 1px solid var(--ar-panel-edge);
 	border-radius: 3px;
 }
 
@@ -176,7 +210,7 @@ button.ar-write { }
  * field that cuts it off is a field you cannot read the value out of. */
 #ar-settings input.ar-price { width: 11em; }
 #ar-settings .ar-sources label { margin-right: 10px; }
-#ar-settings .ar-note { color: #666; margin-top: 6px; }
+#ar-settings .ar-note { color: var(--ar-grey); margin-top: 6px; }
 
 /* --- What a restock did ------------------------------------------------- */
 
@@ -185,7 +219,7 @@ button.ar-write { }
 
 #ar-steps { margin-top: 12px; }
 #ar-steps .ar-step { padding: 2px 0; }
-#ar-steps .ar-step.bad { color: #a60; }
+#ar-steps .ar-step.bad { color: var(--ar-warn); }
 
 /* --- Sales -------------------------------------------------------------- */
 
@@ -195,9 +229,9 @@ button.ar-write { }
 	font: inherit;
 	padding: 7px;
 	max-width: 16em;
-	border: 1px solid #999;
+	border: 1px solid var(--ar-edge-firm);
 	border-radius: 3px;
-	background: #fff;
+	background: var(--ar-surface);
 }
 
 /* --- Narrow ------------------------------------------------------------- */
