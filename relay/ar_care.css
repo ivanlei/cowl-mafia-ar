@@ -1,0 +1,157 @@
+/* ar_care.css -- the Care Packages page.
+ *
+ * Sized for an iPad in the relay browser first, which is where this gets used:
+ * rows tall enough to read, nothing depending on hover, and a table that stays
+ * legible when the pane is half a screen wide.
+ *
+ * KoL's own relay pages inherit a 13px Arial from its stylesheets; this page is
+ * served on its own and has none of that, so it sets its own.
+ *
+ * Light and dark, and self-contained, for the same reason ar_relay.css is:
+ * this page carries no stylesheet but this one, so the switch has to be here.
+ * `color-scheme` is what makes light-dark() pick a half and what gets the
+ * scrollbar drawn dark; without it a dark page keeps a white one. */
+:root {
+	color-scheme: light dark;
+
+	--care-page:      light-dark(#fff, #000);
+	--care-ink:       light-dark(#000, #d6d9dd);
+	--care-quiet:     light-dark(#595959, #8b929b);
+	--care-rule:      light-dark(#ccc, #434a53);
+	--care-rule-soft: light-dark(#eee, #2f343c);
+	--care-warn:      light-dark(#9a3b00, #ffb07a);
+	--care-link:      light-dark(#0b57d0, #9ec5ff);
+}
+
+body {
+	margin: 0;
+	background: var(--care-page);
+	color: var(--care-ink);
+	font: 13px/1.45 Arial, Helvetica, sans-serif;
+}
+
+#care {
+	padding: 10px 12px 28px;
+	max-width: 56em;
+}
+
+h1 {
+	font-size: 17px;
+	margin: 0 0 12px;
+}
+
+a {
+	color: var(--care-link);
+}
+
+/* What is configured, as a label/value pair per row. */
+.care-setup {
+	border-collapse: collapse;
+	margin-bottom: 12px;
+}
+
+.care-setup td {
+	padding: 2px 12px 2px 0;
+	vertical-align: top;
+}
+
+.care-label {
+	color: var(--care-quiet);
+	white-space: nowrap;
+}
+
+/* Anything wrong with the package. A fatal one is why there is no send button,
+ * so it reads as a refusal; a warning is worth knowing and does not stop. */
+.care-problems {
+	margin: 0 0 12px;
+	padding-left: 1.2em;
+}
+
+.care-fatal {
+	font-weight: bold;
+}
+
+.care-warn {
+	color: var(--care-warn);
+}
+
+.care-summary {
+	margin: 12px 0 4px;
+}
+
+.care-note {
+	margin: 4px 0 14px;
+	color: var(--care-quiet);
+	font-style: italic;
+}
+
+/* The ranks the roster has, so arCareSkipRanks can be typed from the page rather
+ * than from however many pages of roster. A skipped one is struck through, so
+ * the list is also a readout of the setting. */
+.care-ranks {
+	margin: 0 0 14px;
+	line-height: 1.8;
+}
+
+.care-rank-off {
+	text-decoration: line-through;
+	color: var(--care-quiet);
+}
+
+/* The roster. */
+.care-list {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.care-list td {
+	padding: 3px 8px 3px 0;
+	vertical-align: top;
+	border-bottom: 1px solid var(--care-rule-soft);
+}
+
+.care-head td {
+	font-weight: bold;
+	color: var(--care-quiet);
+	border-bottom: 1px solid var(--care-rule);
+}
+
+.care-section td {
+	padding-top: 14px;
+	border-bottom: 1px solid var(--care-rule);
+}
+
+/* The one group that is the point of the page. */
+.care-would .care-who {
+	font-weight: bold;
+}
+
+/* The groups that are context rather than the answer. */
+.care-had, .care-quiet, .care-inactive, .care-skipped, .care-pending,
+.care-unknown, .care-self {
+	color: var(--care-quiet);
+}
+
+.care-rank, .care-seen, .care-verdict {
+	white-space: nowrap;
+}
+
+.care-ago {
+	color: var(--care-quiet);
+}
+
+/* A phone-width pane: the rank is the first thing worth losing, then the
+ * repeated verdict, which the section heading above already said. */
+@media (max-width: 560px) {
+	#care {
+		padding: 8px 10px 22px;
+	}
+
+	.care-rank, .care-verdict {
+		display: none;
+	}
+
+	.care-seen {
+		white-space: normal;
+	}
+}

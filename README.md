@@ -13,6 +13,11 @@ which is the point of it.
 This does the bookkeeping either side of that: which items you use as tickets,
 getting them into the store and parked, and reading back what sold.
 
+There is a second page here now — **Care Packages**, further down — which uses
+the same item sourcing. Both are about taking things you hold and getting them
+to other people, so they ask "where may this come from, and will that place
+hand it over today" the same way rather than each keeping an answer.
+
 ## What it does
 
 **Tickets.** Choose the items you use as tickets. Type a name or pick one from
@@ -78,6 +83,52 @@ ar sales [filter]      ticket sales, by item or buyer
 The page and the command answer out of the same functions, so they cannot
 disagree about what your store holds.
 
+## Care packages
+
+A clan page: of everybody on the roster, who has logged in lately and has not
+already had a care package from you. On a clan of a couple of hundred that is
+otherwise an evening's work — three pages of roster, a profile each for the
+last login, and your own memory for who you already sent to.
+
+**It reads your sent mail for that last part**, rather than keeping a list of
+its own, because a list of its own can disagree with the game. Both sent boxes:
+KoL deletes the Outbox after two weeks and says so on the page, while the Saved
+box says it is never deleted — so a package is saved as it is sent and is still
+remembered in a month. A package is told apart from an ordinary conversation by
+a marker line in the message, which is why the page does not count the kmail you
+sent somebody last Tuesday.
+
+**It does not send anything yet.** Not as a promise: there is no send endpoint
+in the repository, no form on the page and no script. That half comes later.
+
+Open it from the relay browser's Scripts menu, as "Care Packages".
+
+| Preference | Default | |
+|---|---|---|
+| `arCareDays` | `14` | logged in this recently counts as active |
+| `arCarePackage` | empty | what is in one, in KoLmafia's item-list syntax |
+| `arCareMeat` | `0` | Meat to include as well |
+| `arCareSources` | `inventory,closet,display,storage` | where a package may be packed from |
+| `arCareNote` | a short default | the message that goes with one |
+| `arCareSkipRanks` | empty | clan ranks not to send to |
+
+With `arCarePackage` unset the page offers nothing to press and says so — a
+tool that gives your items away to a hundred people should not arrive with an
+opinion about which ones.
+
+Two things it will refuse rather than get wrong. **At most five different
+items**, because a recipient in Hardcore or Ronin can only be sent a gift box
+and KoLmafia's auto-chosen box holds five — a longer package would work for
+part of your clan and not the rest. And **if it cannot read your sent mail it
+will not offer to send at all**, because an unread mailbox looks exactly like
+"nobody has had one", and that is the one direction this must not fail in.
+
+`arCareSkipRanks` is matched whole and case-insensitively, not as a substring:
+a clan with both "Member" and "Senior Member" as ranks would otherwise have the
+second quietly taken away with the first. The page lists every rank it found
+with a count, so you can see how one is spelled.
+
+
 ## Settings
 
 Ordinary KoLmafia preferences. Change them on the page, with `ar count` and
@@ -90,7 +141,10 @@ Ordinary KoLmafia preferences. Change them on the page, with `ar count` and
 | `arParkPrice` | `999999999999` | the price restock parks at (KoL's ceiling) |
 | `arSources` | `inventory,closet,display,storage` | where restocking may draw from |
 
-Those four are all of them. There is no fifth that buys.
+Those four are the anti-raffle's, and there is no fifth that buys. The care
+packages page has its own six, in its section above — it shares the *code* that
+reads a source, deliberately not the setting, since storage is a Ronin pull
+each and you might well spend those on one and not the other.
 
 
 ## Install
@@ -121,6 +175,9 @@ relay/ar_prefs.ash       settings, allowlisted
 relay/ar_relay.ash       what the endpoints share
 relay/ar_assets.ash      versioned addresses for the css and js
 relay/ar_relay.css, relay/ar_relay.js
+relay/relay_Care_Packages.ash the care packages page
+relay/ar_care.ash        roster, last logins, sent mail, who would get one
+relay/ar_care.css
 ```
 
 Two things about the layout are load-bearing rather than taste:
