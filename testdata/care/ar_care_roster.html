@@ -1,0 +1,32 @@
+<!-- A cut-down clan_members.php for tests/care_packages.test.ash. Hand-built to
+     reproduce the exact row shapes served by the live page, with invented names
+     and sequential ids so no clan member's details are kept. The password hash
+     is replaced with PWDHASH.
+
+     What each row pins:
+       101  the ordinary case
+       102  AN INACTIVE ACCOUNT -- the <font color=gray><b> (inactive)</b></font>
+            that KoL writes after the name. A single pattern with [^<]* between
+            the name and the rank cell skipped all eleven of these on the real
+            clan, which is the whole reason the parser goes row-then-cell.
+       103  a title containing an escaped < (&lt;3), which is how KoL writes one
+       104  an empty title (&nbsp;), so a missing cell is not a missing member
+       105  a rank that CONTAINS another rank ("Senior Member" vs "Member"),
+            which clans really do have -- so a skip list matched as a substring
+            would quietly take this member out along with the plain "Member"s
+     Plus the begin= paging links, which careRoster() follows rather than
+     counting to a number it guessed. -->
+<html><head><title>Clan Members</title></head><body>
+<table><tr><td>
+<b>The Test Clan</b> Clan Members:
+<table><tr><td class=small>Jump to page: <b>[1]</b> <a href='clan_members.php?begin=2'>[2]</a> <a href='clan_members.php?begin=3'>[3]</a></td></tr></table>
+<form name=modify action=clan_members.php method=post><input type=hidden name=pwd value='PWDHASH'><input type=hidden name=action value='modify'><input type=hidden name=begin value=1>
+<tr><td align=center><b>Player</b></td><td align=center><b>Rank</b></td><td align=center><b>Title</b></td></tr>
+<tr><td><input type=hidden name="pids[]" value=101><a class=nounder href="showplayer.php?who=101">Ordinary Member</a>&nbsp;&nbsp;</td><td>Officer</td><td>Nothing Unusual Here</td></tr>
+<tr><td><input type=hidden name="pids[]" value=102><a class=nounder href="showplayer.php?who=102">Gone Away</a><font color=gray><b> (inactive)</b></font>&nbsp;&nbsp;</td><td>Recruit</td><td>Last Seen Years Ago</td></tr>
+<tr><td><input type=hidden name="pids[]" value=103><a class=nounder href="showplayer.php?who=103">Fond Of Hearts</a>&nbsp;&nbsp;</td><td>Member</td><td>Girlypop &lt;3</td></tr>
+<tr><td><input type=hidden name="pids[]" value=104><a class=nounder href="showplayer.php?who=104">No Title At All</a>&nbsp;&nbsp;</td><td>Member</td><td>&nbsp;</td></tr>
+<tr><td><input type=hidden name="pids[]" value=105><a class=nounder href="showplayer.php?who=105">Somebody Personal</a>&nbsp;&nbsp;</td><td>Senior Member</td><td>Not A Plain Member</td></tr>
+</form></table>
+</td></tr></table>
+</body></html>
