@@ -889,6 +889,43 @@ void main() {
 			+ " unset-package checks were skipped.", "olive");
 	}
 
+	/* ---- no half packages ---- */
+
+	// WHAT THIS IS FOR. KoLmafia's csend attaches from the inventory and
+	// nowhere else, and when it finds only some of what it was given it sends
+	// the rest anyway. The Config box meanwhile says "Gather Items From:
+	// Inventory, Closet, Display Case" and careReachable() counts all three.
+	// So a package of "1 R'lyeh, 1 11-leaf clover", with 365 R'lyeh in the
+	// display case and none in the inventory, went to sixty-nine people as a
+	// clover and nothing said a word (COwliCK, 2026-11-21).
+	//
+	// careShortOf() is the rule that stops that, asked per recipient after
+	// careStock() has taken what it can out of the allowed places.
+	care_part [int] nothingAtAll;
+	check("short: an empty package is short of nothing", careShortOf(nothingAtAll) == "");
+
+	// An item nobody could be holding enough of, so this is true on any
+	// character rather than only on the one it was written against.
+	care_part tooMany;
+	tooMany.qty = 2000000000;
+	tooMany.what = $item[seal tooth];
+	tooMany.named = "seal tooth";
+	care_part [int] greedy;
+	greedy[0] = tooMany;
+	check("short: and says so when the inventory cannot cover it",
+		careShortOf(greedy).contains_text("seal tooth"));
+
+	// A PART THAT IS NOT AN ITEM IS NOT THIS RULE'S BUSINESS: carePackageProblems()
+	// and careBadValue() both refuse it by name long before anything is sent,
+	// and reporting it here as well would put the wrong sentence on the row.
+	care_part nonsense;
+	nonsense.qty = 1;
+	nonsense.named = "not a real item at all";
+	care_part [int] bad;
+	bad[0] = nonsense;
+	check("short: a name that is not an item is left to the validators",
+		careShortOf(bad) == "");
+
 	if (failures > 0) {
 		print(failures + " FAILED", "red");
 	} else {

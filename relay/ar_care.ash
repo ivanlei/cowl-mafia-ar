@@ -522,6 +522,29 @@ string careBadValue(string name, string value) {
 	return "Not a setting this touches.";
 }
 
+// Whether the inventory can pack one whole package right now.
+//
+// IN THE LIBRARY RATHER THAN THE ENDPOINT, for the same reason careBadValue()
+// is: it is a rule, and a rule reachable only through a running relay is a
+// rule checked by hand or not at all. The gathering that tries to satisfy it
+// (careStock, ar_care_send.ash) stays with the endpoint, because that one
+// takes things out of your closet and is an action rather than a rule.
+//
+// ASKED AGAIN PER RECIPIENT, after careStock() has done what it can, because
+// a package that is short of one of its items must not be sent at all. That
+// is the rule the whole of the comment above exists to establish: an
+// incomplete package is worse than no package, since the person who gets one
+// has had their turn and nothing about them will say otherwise.
+string careShortOf(care_part [int] parts) {
+	foreach i, p in parts {
+		if (p.what == $item[none]) continue;
+		if (item_amount(p.what) < p.qty) {
+			return "not enough " + p.what + " in your inventory";
+		}
+	}
+	return "";
+}
+
 /*****************************************************
 	The marker
 *****************************************************/
@@ -1494,6 +1517,17 @@ care_problem [int] carePackageProblems() {
 		if (held < p.qty) {
 			note("The places you allow hold " + held + " " + p.what
 				+ ", and the package wants " + p.qty + ".", false);
+		} else if (item_amount(p.what) < p.qty) {
+			// WHERE IT IS COMING OUT OF, said before you press the button rather
+			// than discovered afterwards. KoLmafia's csend attaches from the
+			// inventory and nowhere else, so an item in the closet or the display
+			// case has to be taken out first (careStock, ar_care_send.ash) -- and
+			// taking two hundred of something out of a display case is a thing to
+			// know you are about to do. Before this said anything, a package of
+			// "1 R'lyeh, 1 11-leaf clover" went to sixty-nine people as a clover.
+			note("You have no " + p.what + " in your inventory, so each one will be"
+				+ " taken out of your " + (closet_amount(p.what) >= p.qty
+					? "closet" : "display case") + " as it is sent.", false);
 		}
 	}
 
