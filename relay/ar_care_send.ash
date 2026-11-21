@@ -158,6 +158,18 @@ void main() {
 		return;
 	}
 
+	// WHO THE LAST REQUEST DIED ON, read and cleared in one go. See CARE_TRYING
+	// in ar_care.ash: a send KoLmafia will not complete aborts this script
+	// before it writes anything, and KoLmafia serves that as a 404, so this
+	// preference is the only evidence that the failure was about a person
+	// rather than about KoLmafia.
+	//
+	// REPORTED, NOT ACTED ON. The browser counts them, because it is the browser
+	// that holds the queue and the run -- and because nothing about this is
+	// supposed to outlive the run (COwliCK, 2026-11-21: "forget").
+	int died = get_property(CARE_TRYING).to_int();
+	if (died > 0) set_property(CARE_TRYING, "");
+
 	// NOTHING IS SENT WITHOUT ALL THREE, checked here and not only in the
 	// page: the button is disabled without them, and a disabled button is a
 	// courtesy rather than a guard.
@@ -285,7 +297,13 @@ void main() {
 			done[i].why = short;
 			continue;
 		}
+		// SET BEFORE AND CLEARED AFTER, and the gap between them is the whole
+		// mechanism: a send KoLmafia will not complete aborts the script between
+		// these two lines, so the preference is still naming this recipient when
+		// the next request reads it.
+		set_property(CARE_TRYING, one.who + "");
 		cli_execute(careSendCommand(one.name, parts, meat, careBody()));
+		set_property(CARE_TRYING, "");
 		sentNow = sentNow + 1;
 	}
 
@@ -314,6 +332,7 @@ void main() {
 		out.append(",\"had\":" + (one.had ? "true" : "false"));
 		out.append(",\"why\":" + arQuoted(one.why) + "}");
 	}
-	out.append("],\"batch\":" + CARE_SEND_BATCH + "}");
+	out.append("],\"batch\":" + CARE_SEND_BATCH);
+	out.append(",\"died\":" + died + "}");
 	out.write();
 }
