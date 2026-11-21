@@ -61,6 +61,25 @@ a {
 	vertical-align: middle;
 }
 
+/* THE VALUE COLUMN TAKES THE REST. A table sizes itself to its contents, so
+ * without this the Package Note shrank to the width of the label beside it
+ * and showed about four words of a sentence. The label column is nowrap, so
+ * giving the other one everything is the whole of it. */
+.care-setup {
+	width: 100%;
+}
+
+.care-setup td + td {
+	width: 100%;
+}
+
+/* AND NO PADDING ON THE OUTSIDE EDGE OF IT. A cell padded 12px to the right
+ * inside a table that is already 100% wide puts a 100%-wide input 12px past
+ * the box: measured at 375px, the page scrolled sideways by 16. */
+.care-setup td:last-child {
+	padding-right: 0;
+}
+
 .care-label {
 	color: var(--care-quiet);
 	white-space: nowrap;
@@ -107,6 +126,46 @@ a {
 	display: inline-flex;
 	gap: 5px;
 	min-height: 26px;
+}
+
+/* The Package box's item rows: a quantity, then the item, like KoL's own
+ * "Send: [1] [type to find an item]".
+ *
+ * THE ITEM BOX TAKES WHAT IS LEFT, which is what makes a column of them line
+ * up: the quantity is three digits wide for ever and the names are not, so
+ * the item box flexes and the pair keep their edges down the box. */
+.care-rows {
+	margin-bottom: 6px;
+}
+
+.care-row {
+	align-items: center;
+	display: flex;
+	gap: 6px;
+	margin-bottom: 4px;
+}
+
+.care-row .care-item {
+	flex: 1 1 auto;
+	max-width: 28em;
+}
+
+/* Plain and quiet: this adds an empty row, which is the smallest thing on the
+ * page that happens. A button shaped like the look-up would claim far more. */
+.care-plus {
+	background: none;
+	border: none;
+	color: var(--care-link);
+	cursor: pointer;
+	font: inherit;
+	min-height: 26px;
+	padding: 2px 0;
+	text-align: left;
+}
+
+.care-plus:disabled {
+	color: var(--care-quiet);
+	cursor: default;
 }
 
 /* WHAT A CONTROL JUST SAID, under the box it belongs to -- there are two of
@@ -257,6 +316,16 @@ a {
 
 	.care-seen, .care-send {
 		white-space: normal;
+	}
+
+	/* A TABLE CANNOT GO NARROWER THAN ITS CONTENT, and a clan roster is full
+	 * of names that are twenty-odd characters with no space in them.
+	 * Letting white-space wrap is not enough -- there is nowhere in a name
+	 * like that to wrap -- so the table stayed wider than the box and the
+	 * whole page scrolled sideways by 16px at 375. Breaking mid-word is ugly
+	 * and is still better than a page that slides under your thumb. */
+	.care-who, .care-seen, .care-send {
+		overflow-wrap: anywhere;
 	}
 }
 

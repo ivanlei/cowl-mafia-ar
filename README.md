@@ -121,11 +121,22 @@ would cost somebody a second package.
 **It does not send anything yet.** Not as a promise: there is no send endpoint
 in the repository and no form on the page. That half comes later.
 
-**The page is two KoL section boxes**, Config and Clan Members, which fold
-when you tap the bar. Three of the Config rows are controls and save
-themselves as you change them: how recently counts as active, which places a
-package may be packed from, and the note that goes with one. The other two
-rows are a readout, and are still set from the gCLI.
+**The page is three KoL section boxes** — Config, Package and Clan Members —
+which fold when you tap the bar. Every control on them saves itself as you
+change it; there is no Save button anywhere.
+
+**Package is KoL's own kmail form.** A quantity and an item per row, the item
+box narrowing as you type, `+ add another` for the next one, a Send Meat box
+and the note that goes with the package. Clearing a row's item name takes it
+out again. The suggestions are the giftable items the places you allow
+actually hold — but they only suggest, so you can name something you mean to
+buy before you send, and it is checked against the real item database either
+way.
+
+**Config is who gets one**: how recently counts as active, which places a
+package may be packed from, and the clan ranks to skip. The ranks are a
+readout, still set from the gCLI; the rank list at the foot of Clan Members is
+how you find out how one is spelled.
 
 **Each clan member has a Send tick.** It starts ticked for everyone who would
 get a package. Somebody ruled out by a judgement — not logged in lately, a
@@ -168,6 +179,13 @@ why the two have had separate source settings all along.)
 With `arCarePackage` unset the page offers nothing to press and says so — a
 tool that gives your items away to a hundred people should not arrive with an
 opinion about which ones.
+
+An item whose name has a comma in it — "Oh, the Humanitini", "Trash, a Memoir"
+— is stored as KoLmafia's bracketed id instead, because the preference is a
+comma-separated list and the name would otherwise split into two entries that
+resolve to nothing. That is still item-list syntax and `set arCarePackage = 3
+soda water` still works; it only applies to the awkward names, and the page
+shows you the name either way.
 
 Two things it will refuse rather than get wrong. **At most five different
 items**, because a recipient in Hardcore or Ronin can only be sent a gift box

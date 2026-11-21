@@ -257,6 +257,134 @@ int careReachable(item it, arLimits l) {
 	return total;
 }
 
+/*****************************************************
+	What is in a package
+*****************************************************/
+
+// One entry of arCarePackage, in KoLmafia's own item-list syntax: an optional
+// count, then a name or a [id].
+record care_part {
+	int qty;        // 1 unless the entry led with a count
+	item what;      // $item[none] when the name resolves to nothing
+	string named;   // the name as written, so a refusal can say which one
+};
+
+// arCarePackage, read.
+//
+// NEVER FAILS. A name that is not an item comes back as $item[none] with
+// `named` kept, because every caller wants to say something about the bad
+// entry rather than be handed a list that is quietly one shorter.
+//
+// Lifted out of carePackageProblems(), which is where this loop used to live
+// and still used to be the only reading of the preference. The Package box
+// draws a row per part and the endpoint validates a list before storing it,
+// so there are three readers now and they must agree on all of it -- where
+// the count stops, what counts as an entry, how a blank is treated.
+care_part careOnePart(string entry) {
+	string want = entry;
+	while (want.starts_with(" ")) want = want.substring(1, want.length());
+	while (want.ends_with(" ")) want = want.substring(0, want.length() - 1);
+
+	care_part p;
+	p.qty = 1;
+	p.named = want;
+	if (want == "") return p;
+
+	// to_item of a leading count does not resolve, so the count comes off
+	// first. "3 soda water" is one entry, not three.
+	matcher counted = create_matcher("^(\\d+)\\s+(.*)$", want);
+	if (counted.find()) {
+		p.qty = counted.group(1).to_int();
+		p.named = counted.group(2);
+	}
+	p.what = p.named.to_item();
+	return p;
+}
+
+care_part [int] carePackageParts(string list) {
+	care_part [int] parts;
+	foreach i, piece in split_string(list, ",") {
+		care_part p = careOnePart(piece);
+		if (p.named == "") continue;
+		parts[count(parts)] = p;
+	}
+	return parts;
+}
+
+// THE SAME ENTRIES, ONE PER LINE, which is what the Package box sends and is
+// a different format from the one above on purpose.
+//
+// The stored format is KoLmafia's, comma-separated, and a comma-separated
+// list cannot carry an item with a comma in its name -- of which COwliCK
+// holds four right now ("Oh, the Humanitini", "Ouija Board, Ouija Board",
+// "Maxing, Relaxing", "My Life of Crime, a Memoir"), all giftable. Picking
+// one from the box and sending it as part of a comma list would arrive as two
+// entries that each resolve to nothing, and the box would say "that is not an
+// item" about an item it had just suggested.
+//
+// So the browser sends newline-separated entries, which no item name
+// contains, and ar_care_prefs.ash converts to the stored form with
+// carePackageList() -- which knows to write the awkward ones as [id].
+care_part [int] carePartsFromLines(string lines) {
+	care_part [int] parts;
+	foreach i, line in split_string(lines, "\n") {
+		care_part p = careOnePart(line);
+		if (p.named == "") continue;
+		parts[count(parts)] = p;
+	}
+	return parts;
+}
+
+// How one part is written so that reading it back gives the same part.
+//
+// A COMMA IN THE NAME IS WHY THIS EXISTS. The list is comma-separated and
+// plenty of real items have a comma in them -- "Trash, a Memoir", "Oh, the
+// Humanitini", "1,970 carat gold", "holy bomb, batman" -- all tradeable, all
+// giftable, all of which would split into two entries that each resolve to
+// nothing. So those are written as KoLmafia's bracketed id form instead,
+// which is the same item-list syntax and has no comma in it
+// (ItemDatabase.getBracketedItemId: "[8254]" resolves, and to_item reads it).
+//
+// Only those. A package written as ids throughout would be a preference
+// nobody could read or edit by hand, and the whole point of using KoLmafia's
+// syntax is that `set arCarePackage = 3 soda water` still works.
+string carePackageTerm(care_part p) {
+	if (p.what == $item[none]) return p.named;
+	string name = p.what.to_string();
+	return name.contains_text(",") ? "[" + p.what.to_int() + "]" : name;
+}
+
+// The parts, back to the preference. What the Package box saves.
+// EVERY PART, INCLUDING A BAD ONE. Dropping a quantity of zero here looked
+// tidy and was the wrong shape: careBadValue() refuses "send at least one of
+// each item", and a zero quietly filtered out before it got there meant the
+// rule was unreachable and a row typed as 0 vanished without a word instead
+// of being refused. Clearing the item name is how a row is removed; this
+// writes what it was given.
+string carePackageList(care_part [int] parts) {
+	buffer out;
+	foreach i, p in parts {
+		if (out.length() > 0) out.append(", ");
+		out.append(p.qty + " " + carePackageTerm(p));
+	}
+	return out.to_string();
+}
+
+// The package in words, for a sentence somebody reads.
+//
+// NOT carePackage() ITSELF, which is the stored form and may hold a bracketed
+// id: the summary line said "190x (2 soda water, 1 [5590])" the first time it
+// was shown one, which is true, correct, and no use to anybody. The id is how
+// the preference survives a comma; the name is what the page says.
+string carePackageText(string list) {
+	buffer out;
+	foreach i, p in carePackageParts(list) {
+		if (out.length() > 0) out.append(", ");
+		out.append(p.qty + " " + (p.what == $item[none] ? p.named : p.what.to_string()));
+	}
+	return out.to_string();
+}
+
 string CARE_NOTE_DEFAULT = "A care package from your clan. Enjoy!";
 
 string careNote() {
@@ -291,15 +419,22 @@ boolean [string] careSkipRanks() {
 // these is refused rather than set. ar_prefs.ash keeps the same list for the
 // anti-raffle's three, and the reasoning is written out there.
 //
-// arCarePackage is deliberately NOT here. COwliCK's call, 2026-11-21: the page
-// shows what the package is and the gCLI still sets it. An item list is a
-// different kind of value -- it has to be parsed against real item names and
-// refused by name when one is wrong -- and that is its own job.
+// arCarePackage and arCareMeat joined the list when the Package box arrived
+// (COwliCK, 2026-11-21: "very like the kmail item sending UI"), which
+// reversed his earlier answer that the package should stay a gCLI-only
+// readout. The item list is the awkward one and always was -- it has to be
+// parsed against real item names and refused by name when one is wrong --
+// which is why careBadValue() below is longer for it than for the rest.
+//
+// arCareSkipRanks is still NOT here: the Config box shows it and does not
+// edit it, which is what was asked for.
 boolean [string] careSettable() {
 	boolean [string] allowed;
 	allowed[CARE_DAYS] = true;
 	allowed[CARE_SOURCES] = true;
 	allowed[CARE_NOTE] = true;
+	allowed[CARE_PACKAGE] = true;
+	allowed[CARE_MEAT] = true;
 	return allowed;
 }
 
@@ -353,6 +488,45 @@ string careBadValue(string name, string value) {
 	if (name == CARE_DAYS) {
 		if (value == "" || !value.is_integer()) return "Not a number.";
 		if (value.to_int() < 1) return "At least one day.";
+		return "";
+	}
+
+	if (name == CARE_MEAT) {
+		// Empty IS allowed and means none, because clearing the Meat box is
+		// how you stop sending Meat. careMeat() already reads an unset
+		// preference as 0.
+		if (value == "") return "";
+		if (!value.is_integer()) return "Not a number.";
+		if (value.to_int() < 0) return "Meat cannot be negative.";
+		return "";
+	}
+
+	if (name == CARE_PACKAGE) {
+		// Empty is a package of no items, which with Meat set is a perfectly
+		// good package and without it is the state a fresh install is in.
+		if (value == "") return "";
+
+		care_part [int] parts = carePackageParts(value);
+		if (count(parts) == 0) return "Name an item, or leave it empty.";
+
+		foreach i, p in parts {
+			if (p.qty < 1) return "Send at least one of each item.";
+			// Never echoes the name back, the same contract every other
+			// refusal here keeps -- the page knows which row it just changed.
+			if (p.what == $item[none]) return "That is not an item.";
+			if (!p.what.is_giftable()) return "That cannot be sent to anyone.";
+		}
+
+		// REFUSED HERE AS WELL AS REPORTED BY carePackageProblems(), which is
+		// not a duplicate: the gCLI can still write a sixth item and the page
+		// has to explain the package it finds, but the page's own controls
+		// should not be able to walk into a state they then complain about.
+		// KoLmafia's gift box holds five and anyone in Hardcore or Ronin can
+		// only be sent a gift box.
+		if (count(parts) > 5) {
+			return "A gift box holds five different items, and that is "
+				+ count(parts) + ".";
+		}
 		return "";
 	}
 
@@ -1245,46 +1419,30 @@ care_problem [int] carePackageProblems() {
 
 	string list = carePackage();
 	if (list == "" && careMeat() <= 0) {
-		note("No package set yet. Set " + CARE_PACKAGE + " (and/or " + CARE_MEAT
-			+ ") and this page will offer to send it. From the gCLI:"
-			+ " <code>set arCarePackage = 3 soda water</code>.", true);
+		// Points at the box now rather than at the gCLI, which is where this
+		// had to send you until the Package box existed.
+		note("Nothing in the package yet. Name an item or some Meat in"
+			+ " <b>Package</b> and this page will offer to send it.", true);
 		return found;
 	}
 
-	int items = 0;
-	foreach i, part in split_string(list, ",") {
-		string want = part;
-		while (want.starts_with(" ")) want = want.substring(1, want.length());
-		while (want.ends_with(" ")) want = want.substring(0, want.length() - 1);
-		if (want == "") continue;
-		items = items + 1;
-
-		// KoLmafia's own item-list syntax, so "3 soda water" is one entry.
-		// to_item of a leading count does not resolve, so the count comes off
-		// first.
-		matcher counted = create_matcher("^(\\d+)\\s+(.*)$", want);
-		int qty = 1;
-		string named = want;
-		if (counted.find()) {
-			qty = counted.group(1).to_int();
-			named = counted.group(2);
-		}
-
-		item it = named.to_item();
-		if (it == $item[none]) {
-			note("No such item: \"" + named + "\".", true);
+	care_part [int] parts = carePackageParts(list);
+	int items = count(parts);
+	foreach i, p in parts {
+		if (p.what == $item[none]) {
+			note("No such item: \"" + p.named + "\".", true);
 			continue;
 		}
 		// is_giftable() is the one thing ASH knows about sending. A bound item
 		// cannot leave, gift box or not, so this is fatal rather than a warning.
-		if (!it.is_giftable()) {
-			note(it + " cannot be sent to anyone.", true);
+		if (!p.what.is_giftable()) {
+			note(p.what + " cannot be sent to anyone.", true);
 			continue;
 		}
-		int held = careReachable(it, limits);
-		if (held < qty) {
-			note("The places you allow hold " + held + " " + it
-				+ ", and the package wants " + qty + ".", false);
+		int held = careReachable(p.what, limits);
+		if (held < p.qty) {
+			note("The places you allow hold " + held + " " + p.what
+				+ ", and the package wants " + p.qty + ".", false);
 		}
 	}
 

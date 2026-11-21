@@ -67,6 +67,24 @@ string careSnapshotAgeText() {
 	return days + (days == 1 ? " day ago" : " days ago");
 }
 
+// One line of the Package box: a quantity and an item, like KoL's "Send: [1]
+// [type to find an item]".
+//
+// THE SAME MARKUP FOR A SAVED ROW AND AN EMPTY ONE, which is what lets
+// ar_care.js clone a row without knowing anything about how one is built: the
+// + copies the last one and clears it. An empty row is one whose item box is
+// empty, here and in the JS, and that is also how a row is deleted.
+void careItemRow(buffer out, int qty, string named) {
+	out.append("<div class='care-row'>");
+	out.append("<input class='care-qty care-number' type='number' min='1' step='1'"
+		+ " value=" + careAttr(qty + "") + ">");
+	out.append("<input class='care-item care-text' type='text' list='care-items'"
+		+ " autocomplete='off' spellcheck='false'"
+		+ " placeholder='type to find an item'"
+		+ " value=" + careAttr(named) + ">");
+	out.append("</div>");
+}
+
 // One member's row: Name, Rank, Last Login, Send.
 //
 // ONE TABLE WHERE THERE WERE EIGHT SECTIONS. COwliCK asked for "List of
@@ -215,11 +233,6 @@ void main() {
 		+ " type='number' min='1' step='1' value=" + careAttr(careDays() + "") + "> days");
 	out.append("</td></tr>");
 
-	out.append("<tr><td class='care-label'>Package</td><td>");
-	out.append(carePackage() == "" ? "<i>not set</i>" : careHtml(carePackage()));
-	if (careMeat() > 0) out.append((carePackage() == "" ? "" : ", ") + careMeat() + " Meat");
-	out.append("</td></tr>");
-
 	out.append("<tr><td class='care-label'>Gather Items From</td><td class='care-places'>");
 	boolean [string] on = careSources();
 	foreach i, place in careAllSources() {
@@ -235,6 +248,51 @@ void main() {
 		? "<i>none</i>" : careHtml(get_property(CARE_SKIP)));
 	out.append("</td></tr>");
 
+	out.append("</table>\n");
+	out.append("<div id='care-config-said' class='care-said'></div>\n");
+
+	out.append(arBoxEnd() + "\n");
+
+	/* ---- what is in a package ---- */
+
+	// KoL'S OWN kmail FORM, as closely as this can manage. COwliCK,
+	// 2026-11-21, pointing at Send a Message: "very like the kmail item
+	// sending UI. lets you select items from dropdown that autocompletes.
+	// let's you add more drop downs. lets you select quantity of items. lets
+	// you select an amount of meat." The note came here from Config in the
+	// same breath -- "to look more like kmail send to" -- and it belongs
+	// here: this box is now the whole of what a recipient gets.
+	//
+	// A ROW PER ITEM ALREADY SET, PLUS AN EMPTY ONE, so the common case needs
+	// no press at all and the + is for the second item onwards, the way KoL's
+	// is. An empty row is not in the preference, so a reload brings back
+	// exactly the items that are set and one more blank.
+	out.append(arBoxStart("Package"));
+
+	out.append("<div id='care-rows' class='care-rows'>");
+	care_part [int] parts = carePackageParts(carePackage());
+	foreach i, p in parts {
+		careItemRow(out, p.qty, p.what == $item[none] ? p.named : p.what.to_string());
+	}
+	careItemRow(out, 1, "");
+	out.append("</div>\n");
+
+	// The suggestions, filled by ar_care.js from ar_care_items.ash. Empty in
+	// the served page on purpose: it is a couple of thousand <option> tags on
+	// this character, which is a third of the page's weight for something the
+	// browser only needs once the box is focused.
+	out.append("<datalist id='care-items'></datalist>\n");
+
+	out.append("<div class='care-row'>");
+	out.append("<button id='care-add-row' type='button' class='care-plus'>+ add another</button>");
+	out.append("</div>\n");
+
+	out.append("<table class='care-setup'>");
+	out.append("<tr><td class='care-label'>Send Meat</td><td>");
+	out.append("<input id='care-meat' class='care-number' type='number' min='0'"
+		+ " step='1' value=" + careAttr(careMeat() + "") + ">");
+	out.append("</td></tr>");
+
 	// THE EFFECTIVE NOTE, not the raw preference: careNote() answers the
 	// default sentence for an unset one, and a box that is empty when the
 	// kmail will not be is a box that lies about what is going to be sent.
@@ -244,9 +302,9 @@ void main() {
 	out.append("<input id='care-note-text' class='care-text' type='text'"
 		+ " value=" + careAttr(careNote()) + ">");
 	out.append("</td></tr>");
-
 	out.append("</table>\n");
-	out.append("<div id='care-config-said' class='care-said'></div>\n");
+
+	out.append("<div id='care-package-said' class='care-said'></div>\n");
 
 	out.append(arBoxEnd() + "\n");
 
@@ -343,7 +401,10 @@ void main() {
 		if (careMeat() > 0) out.append(" &mdash; " + (careMeat() * would) + " Meat in all");
 		if (carePackage() != "") {
 			out.append(careMeat() > 0 ? ", plus " : " &mdash; ");
-			out.append(would + "&times; (" + careHtml(carePackage()) + ")");
+			// carePackageText(), not carePackage(): the stored form can hold a
+			// bracketed id for an item whose name has a comma in it, and
+			// "190x (2 soda water, 1 [5590])" is not a sentence.
+			out.append(would + "&times; (" + careHtml(carePackageText(carePackage())) + ")");
 		}
 		out.append(", and up to " + (would * 1000)
 			+ " Meat of gift boxes for anyone in Hardcore or Ronin.");

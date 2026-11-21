@@ -541,17 +541,95 @@ void main() {
 	checkString("places: the setting was put back",
 		get_property(CARE_SOURCES), savedSources);
 
-	/* ---- what the Config box may write ---- */
+	/* ---- what is in a package ---- */
+
+	// THE ITEM WITH A COMMA IN ITS NAME is the whole reason the Package box
+	// does not simply join its rows with commas. COwliCK holds four such
+	// items right now, all giftable; this is one of them. Named through
+	// to_item rather than as $item[...] so the comma cannot be read as
+	// anything but part of the name.
+	item awkward = "Oh, the Humanitini".to_item();
+	check("package: the awkward test item exists", awkward != $item[none]);
+	check("package: and its name really does have a comma in it",
+		awkward.to_string().contains_text(","));
+
+	care_part one = careOnePart("3 soda water");
+	checkInt("part: the leading count comes off", one.qty, 3);
+	checkString("part: and the rest is the name", one.named, "soda water");
+	check("part: which resolves", one.what == $item[soda water]);
+
+	one = careOnePart("  soda water  ");
+	checkInt("part: no count means one", one.qty, 1);
+	check("part: and the spaces are trimmed", one.what == $item[soda water]);
+
+	one = careOnePart("nonsense widget of nope");
+	check("part: an unknown name resolves to nothing", one.what == $item[none]);
+	checkString("part: and is kept so a refusal can name it",
+		one.named, "nonsense widget of nope");
+
+	// The two readers. Same entries, different separator, and that is the
+	// point: the stored form is KoLmafia's comma list and the wire form from
+	// the browser is one per line, because a comma list cannot carry the item
+	// above.
+	checkInt("parts: a stored comma list",
+		count(carePackageParts("3 soda water, 1 spices")), 2);
+	checkInt("parts: blanks between commas are not entries",
+		count(carePackageParts("3 soda water, , ,")), 1);
+	checkInt("lines: what the Package box sends",
+		count(carePartsFromLines("3 soda water\n1 spices")), 2);
+	checkInt("lines: and a blank line is not an entry",
+		count(carePartsFromLines("3 soda water\n\n")), 1);
+
+	// THE ROUND TRIP, which is the test this whole pair of formats exists
+	// for. Typed in the box, stored, read back: the same item, the same
+	// count, and not two entries that resolve to nothing.
+	string stored = carePackageList(carePartsFromLines("2 soda water\n1 "
+		+ awkward.to_string()));
+	check("round trip: the awkward name is stored as its id",
+		stored.contains_text("[" + awkward.to_int() + "]"));
+	check("round trip: so the stored list has one comma, the separator",
+		count(split_string(stored, ",")) == 2);
+
+	care_part [int] back = carePackageParts(stored);
+	checkInt("round trip: two entries come back", count(back), 2);
+	check("round trip: the ordinary one survives", back[0].what == $item[soda water]);
+	checkInt("round trip: with its count", back[0].qty, 2);
+	check("round trip: and so does the awkward one", back[1].what == awkward);
+	checkInt("round trip: with its count too", back[1].qty, 1);
+
+	// WHAT THE SUMMARY SAYS, which is not what is stored. The first time the
+	// summary was handed a bracketed id it printed "190x (2 soda water,
+	// 1 [5590])" -- true, correct, and no use to anybody.
+	checkString("text: the id is read back out as a name",
+		carePackageText(stored), "2 soda water, 1 " + awkward);
+	checkString("text: and an ordinary list is unchanged",
+		carePackageText("3 soda water"), "3 soda water");
+	check("text: nothing a reader sees is in brackets",
+		!carePackageText(stored).contains_text("["));
+
+	// An ordinary name is NOT written as an id: the preference is meant to
+	// stay something you can read and set from the gCLI.
+	check("round trip: an ordinary name is written as a name",
+		carePackageList(carePartsFromLines("1 soda water")) == "1 soda water");
+
+	// A quantity of zero is written out rather than quietly dropped, so that
+	// careBadValue() gets to refuse it. Filtering it here made the rule
+	// unreachable and a row typed as 0 vanished without a word.
+	check("round trip: a zero is kept for the validator to refuse",
+		carePackageList(carePartsFromLines("0 soda water")) == "0 soda water");
+
+	/* ---- what the Config and Package boxes may write ---- */
 
 	boolean [string] settable = careSettable();
-	checkInt("settable: three settings and no more", count(settable), 3);
+	checkInt("settable: five settings and no more", count(settable), 5);
 	check("settable: the days", settable contains CARE_DAYS);
 	check("settable: the places", settable contains CARE_SOURCES);
 	check("settable: the note", settable contains CARE_NOTE);
-	// Read-only on the page by COwliCK's decision, 2026-11-21: an item list
-	// wants parsing against real item names and that is its own job.
-	check("settable: and NOT the package", !(settable contains CARE_PACKAGE));
-	check("settable: nor the skipped ranks", !(settable contains CARE_SKIP));
+	check("settable: the package", settable contains CARE_PACKAGE);
+	check("settable: the Meat", settable contains CARE_MEAT);
+	// Shown by the Config box and not edited there, which is what was asked
+	// for: the roster's own rank list is how you find out how one is spelled.
+	check("settable: and NOT the skipped ranks", !(settable contains CARE_SKIP));
 
 	checkString("days: a number is fine", careBadValue(CARE_DAYS, "14"), "");
 	check("days: zero is not", careBadValue(CARE_DAYS, "0") != "");
@@ -590,6 +668,46 @@ void main() {
 	while (tooLong.length() <= CARE_NOTE_MAX) tooLong.append("abcdefghij");
 	check("note: one past the cap is refused",
 		careBadValue(CARE_NOTE, tooLong.to_string()) != "");
+
+	checkString("meat: a number is fine", careBadValue(CARE_MEAT, "500"), "");
+	// Zero and empty both mean "no Meat", and clearing the box is how you say
+	// so -- being told off for emptying a box you wanted empty is no answer.
+	checkString("meat: zero is fine", careBadValue(CARE_MEAT, "0"), "");
+	checkString("meat: empty is fine", careBadValue(CARE_MEAT, ""), "");
+	check("meat: negative is not", careBadValue(CARE_MEAT, "-5") != "");
+	check("meat: and a word is not", careBadValue(CARE_MEAT, "lots") != "");
+
+	// The package is validated in its STORED form, which is what
+	// ar_care_prefs.ash converts the box's lines to before checking -- so
+	// what is checked is exactly what will be written.
+	checkString("package: empty is fine, that is no items",
+		careBadValue(CARE_PACKAGE, ""), "");
+	checkString("package: a real giftable item is fine",
+		careBadValue(CARE_PACKAGE, "3 soda water"), "");
+	checkString("package: and so is the awkward one, by its id",
+		careBadValue(CARE_PACKAGE, "1 [" + awkward.to_int() + "]"), "");
+	check("package: an unknown name is refused",
+		careBadValue(CARE_PACKAGE, "1 nonsense widget of nope") != "");
+	check("package: a quantity of zero is refused",
+		careBadValue(CARE_PACKAGE, "0 soda water") != "");
+
+	// A bound item cannot leave however it is packed, so offering to send one
+	// is offering a refusal. The Package box does not even suggest them.
+	item bound = $item[Boris's key];
+	if (bound != $item[none] && !bound.is_giftable()) {
+		check("package: an item that cannot be sent is refused",
+			careBadValue(CARE_PACKAGE, "1 " + bound) != "");
+	}
+
+	// FIVE, BECAUSE THAT IS WHAT A GIFT BOX HOLDS, and anyone in Hardcore or
+	// Ronin can only be sent a gift box. Refused here as well as reported by
+	// carePackageProblems(), so the page's own controls cannot walk into a
+	// state they then complain about.
+	string five = "1 soda water, 1 spices, 1 tiny plastic sword, 1 cherry, 1 lime";
+	checkString("package: five different items is allowed",
+		careBadValue(CARE_PACKAGE, five), "");
+	check("package: six is not",
+		careBadValue(CARE_PACKAGE, five + ", 1 olive") != "");
 
 	check("write: a setting the box does not carry is refused by the rule too",
 		careBadValue("arTicketItems", "anything") != "");

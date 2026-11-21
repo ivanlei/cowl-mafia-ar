@@ -147,8 +147,8 @@
 	var SCAN = '/ar_care_scan.ash';
 	var PREFS = '/ar_care_prefs.ash';
 
-	var scanButton, stopButton, progress, said, configSaid, tickedLine;
-	var ask, askConfig;
+	var scanButton, stopButton, progress, said, configSaid, packageSaid, tickedLine;
+	var ask, saveInConfig, saveInPackage;
 	var running = false;
 	var stopped = false;
 	var startedAt = 0;
@@ -169,6 +169,12 @@
 		if (!configSaid) return;
 		configSaid.textContent = text || '';
 		configSaid.className = 'care-said ' + (kind || '');
+	}
+
+	function packageSay(text, kind) {
+		if (!packageSaid) return;
+		packageSaid.textContent = text || '';
+		packageSaid.className = 'care-said ' + (kind || '');
 	}
 
 	function show(text) {
@@ -336,26 +342,35 @@
 	// `landed` is what tells a refusal from a save: ar_ask.js calls `then`
 	// only on success and `always` on every path, and a control left showing a
 	// value the server refused is a control that looks saved.
-	function saveSetting(name, value, opts) {
-		opts = opts || {};
-		var landed = false;
-		configSay('Saving…', 'busy');
-		askConfig(PREFS, { name: name, value: value }, function () {
-			landed = true;
-			if (opts.saved) opts.saved();
-			if (opts.reload) {
-				configSay('Saved — redrawing…', 'done');
-				window.location.reload();
-				return;
-			}
-			configSay('Saved.', 'done');
-		}, function () {
-			if (landed) return;
-			// The refusal itself is already on the line, written by ar_ask.js
-			// through configSay. All that is left is to put the control back
-			// to what the server still holds.
-			if (opts.revert) opts.revert();
-		});
+	// A SAVER PER BOX, because a refusal has to appear under the control that
+	// caused it. ar_ask.js reports through whichever `say` the asker was
+	// built with, so "That is not an item." written beside the Config
+	// checkboxes -- a box and a half up the page from the row being typed in
+	// -- would read as an unrelated failure. This is what the factory in
+	// ar_ask.js is for.
+	function saverFor(say) {
+		var asker = window.arAsk.make(window.arPwd, say);
+		return function (name, value, opts) {
+			opts = opts || {};
+			var landed = false;
+			say('Saving…', 'busy');
+			asker(PREFS, { name: name, value: value }, function () {
+				landed = true;
+				if (opts.saved) opts.saved();
+				if (opts.reload) {
+					say('Saved — redrawing…', 'done');
+					window.location.reload();
+					return;
+				}
+				say('Saved.', 'done');
+			}, function () {
+				if (landed) return;
+				// The refusal itself is already on the line, written by
+				// ar_ask.js. All that is left is to put the control back to
+				// what the server still holds.
+				if (opts.revert) opts.revert();
+			});
+		};
 	}
 
 	function placesOn() {
@@ -372,27 +387,9 @@
 		if (days) {
 			var lastDays = days.value;
 			days.onchange = function () {
-				saveSetting('arCareDays', days.value, {
+				saveInConfig('arCareDays', days.value, {
 					reload: true,
 					revert: function () { days.value = lastDays; }
-				});
-			};
-		}
-
-		var note = document.getElementById('care-note-text');
-		if (note) {
-			// THE LAST VALUE THE SERVER ACCEPTED, moved on only when it has
-			// accepted another. Updating it at the moment of asking is the
-			// easy mistake: a note refused for being too long would then be
-			// "reverted" to itself, and the box would keep a value the
-			// preference does not have.
-			var lastNote = note.value;
-			note.onchange = function () {
-				var asked = note.value;
-				var before = lastNote;
-				saveSetting('arCareNote', asked, {
-					saved: function () { lastNote = asked; },
-					revert: function () { note.value = before; }
 				});
 			};
 		}
@@ -412,13 +409,134 @@
 						configSay('Leave at least one place on.', 'err');
 						return;
 					}
-					saveSetting('arCareSources', on.join(','), {
+					saveInConfig('arCareSources', on.join(','), {
 						reload: true,
 						revert: function () { box.checked = !box.checked; }
 					});
 				};
 			})(boxes[i]);
 		}
+	}
+
+	/* ---- the Package box ---- */
+
+	// WHAT THE ROWS ADD UP TO, one entry per line.
+	//
+	// NEWLINES AND NOT COMMAS, which is the whole reason this is not just a
+	// join(', '). The stored preference is comma-separated -- KoLmafia's own
+	// item-list syntax -- and real giftable items have commas in their names:
+	// "Oh, the Humanitini", "Ouija Board, Ouija Board". Sending those in a
+	// comma list would arrive as entries that resolve to nothing, and the box
+	// would refuse an item it had just suggested. ar_care_prefs.ash converts
+	// to the stored form and knows how to write the awkward ones.
+	//
+	// A ROW WITH NO ITEM IS NOT AN ENTRY, which is also how a row is deleted:
+	// clear the name and it stops being part of the package.
+	function packageLines() {
+		var lines = [];
+		var rows = document.querySelectorAll('#care-rows .care-row');
+		for (var i = 0; i < rows.length; i++) {
+			var name = rows[i].querySelector('.care-item').value.trim();
+			if (!name) continue;
+			var qty = rows[i].querySelector('.care-qty').value.trim() || '1';
+			lines.push(qty + ' ' + name);
+		}
+		return lines.join('\n');
+	}
+
+	function saveRows() {
+		saveInPackage('arCarePackage', packageLines(), { reload: true });
+	}
+
+	function bindRow(row) {
+		var qty = row.querySelector('.care-qty');
+		var item = row.querySelector('.care-item');
+		if (!qty || !item) return;
+
+		// A QUANTITY ALONE SAVES NOTHING. Typing 3 into an empty row and
+		// tabbing out is halfway through naming an item, not a change to the
+		// package -- saving there would reload the page out from under you
+		// before you had said what three of.
+		qty.onchange = function () {
+			if (item.value.trim()) saveRows();
+		};
+		item.onchange = saveRows;
+	}
+
+	function bindPackage() {
+		var rows = document.querySelectorAll('#care-rows .care-row');
+		for (var i = 0; i < rows.length; i++) bindRow(rows[i]);
+
+		var add = document.getElementById('care-add-row');
+		if (add) {
+			add.onclick = function () {
+				var all = document.querySelectorAll('#care-rows .care-row');
+				if (!all.length) return;
+				// CLONED FROM THE LAST ROW rather than built here, so there is
+				// one description of what a row is and it lives in the ASH
+				// that writes the page. A second one here would be the thing
+				// that drifted.
+				var fresh = all[all.length - 1].cloneNode(true);
+				fresh.querySelector('.care-qty').value = '1';
+				fresh.querySelector('.care-item').value = '';
+				document.getElementById('care-rows').appendChild(fresh);
+				bindRow(fresh);
+				fresh.querySelector('.care-item').focus();
+			};
+		}
+
+		var meat = document.getElementById('care-meat');
+		if (meat) {
+			var lastMeat = meat.value;
+			meat.onchange = function () {
+				saveInPackage('arCareMeat', meat.value, {
+					reload: true,
+					revert: function () { meat.value = lastMeat; }
+				});
+			};
+		}
+
+		var note = document.getElementById('care-note-text');
+		if (note) {
+			// THE LAST VALUE THE SERVER ACCEPTED, moved on only when it has
+			// accepted another. Updating it at the moment of asking is the
+			// easy mistake: a note refused for being too long would then be
+			// "reverted" to itself, and the box would keep a value the
+			// preference does not have.
+			var lastNote = note.value;
+			note.onchange = function () {
+				var asked = note.value;
+				var before = lastNote;
+				saveInPackage('arCareNote', asked, {
+					saved: function () { lastNote = asked; },
+					revert: function () { note.value = before; }
+				});
+			};
+		}
+	}
+
+	// The suggestions, fetched once and only if the box is there.
+	//
+	// AFTER THE PAGE HAS DRAWN, not written into it. On this character the
+	// list is about two thousand items; as <option> tags in the served page
+	// that is a third of its weight, paid on every load, for something the
+	// browser needs only when the box is focused.
+	function loadItems() {
+		var list = document.getElementById('care-items');
+		if (!list) return;
+		ask('/ar_care_items.ash', { have: 1 }, function (answer) {
+			var held = answer.held || [];
+			held.sort(function (a, b) {
+				return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+			}).forEach(function (it) {
+				var option = document.createElement('option');
+				// The bare name, because in a datalist the value is what
+				// lands in the box when you pick it -- anything else and you
+				// would be typing over "soda water -- 12 held" to correct it.
+				option.value = it.name;
+				list.appendChild(option);
+			});
+		}, null);
 	}
 
 	/* ---- the Send ticks ---- */
@@ -456,6 +574,7 @@
 		progress = document.getElementById('care-progress');
 		said = document.getElementById('care-said');
 		configSaid = document.getElementById('care-config-said');
+		packageSaid = document.getElementById('care-package-said');
 		tickedLine = document.getElementById('care-ticked');
 
 		// A HALF-INSTALL SAYS SO. These two files ship together and the page
@@ -466,23 +585,28 @@
 		// boxes and either one is where you might be looking.
 		if (!window.arAsk) {
 			if (scanButton) scanButton.disabled = true;
-			var dead = document.querySelectorAll('#care-days, #care-note-text, .care-place');
+			var dead = document.querySelectorAll('#care-days, #care-note-text,'
+				+ ' #care-meat, #care-add-row, .care-place, .care-qty, .care-item');
 			for (var i = 0; i < dead.length; i++) dead[i].disabled = true;
 			var missing = 'ar_ask.js did not load, so nothing here can be saved'
 				+ ' or looked up. Reinstall the script, or reload.';
 			say(missing, 'err');
 			configSay(missing, 'err');
+			packageSay(missing, 'err');
 			return;
 		}
 		ask = window.arAsk.make(window.arPwd, say);
-		askConfig = window.arAsk.make(window.arPwd, configSay);
+		saveInConfig = saverFor(configSay);
+		saveInPackage = saverFor(packageSay);
 
-		// BEFORE THE EARLY RETURN BELOW. The Config box and the ticks are
-		// there whether or not anything has been looked up yet, and a page
-		// with no scan button -- which is not a state this page has, but is
-		// one an edit could make -- should still save its settings.
+		// BEFORE THE EARLY RETURN BELOW. The two setting boxes and the ticks
+		// are there whether or not anything has been looked up yet, and a
+		// page with no scan button -- which is not a state this page has, but
+		// is one an edit could make -- should still save its settings.
 		bindConfig();
+		bindPackage();
 		bindTicks();
+		loadItems();
 
 		if (!scanButton) return;
 
