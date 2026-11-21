@@ -152,6 +152,10 @@ you get no box at all: those are not opinions to overrule.
 it again clears it. Any box still off means the press fills; only a column
 that is already full empties, so the second press always undoes the first.
 
+**The summary counts the ticks, not who is eligible.** Untick down to three
+and it prices three packages — the Meat, the items and the gift boxes all
+follow what is ticked, because that is who a send would go to.
+
 **Somebody mid-ascension shows a last login of "astral".** KoL serves an
 astral spirit no profile at all — no account-created date, no last login, just
 the name and "Astral Spirit" — so there is nothing to judge them by and the

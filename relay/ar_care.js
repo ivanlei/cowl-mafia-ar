@@ -142,6 +142,27 @@
 	// The alternative, flipping each box, is a different control: it would
 	// turn the 190 off and the 28 on, which is not "select all" and is not
 	// anything anybody wants from a header.
+	// WHAT THE TICKED ROWS COST. Three multiplications, and they are here
+	// rather than in the ASH for one reason: the number being multiplied is
+	// how many boxes are ticked, which exists only in this browser.
+	//
+	// The sentence they go into is still written server-side; these fill the
+	// holes in it. Pinned by a test because the summary is the page's one
+	// claim about what pressing a send button would do, and it said 190 and
+	// priced 190 while three rows were ticked.
+	//
+	// `boxes` is "up to": a gift box is only bought for a recipient a plain
+	// kmail is refused for, and whether somebody is in Hardcore or Ronin is
+	// not something this page can see.
+	function careSendTotals(ticked, meatEach, boxEach) {
+		var n = ticked > 0 ? ticked : 0;
+		return {
+			count: n,
+			meat: n * (meatEach > 0 ? meatEach : 0),
+			boxes: n * (boxEach > 0 ? boxEach : 0)
+		};
+	}
+
 	function careTickAllTarget(states) {
 		for (var i = 0; i < states.length; i++) {
 			if (!states[i]) return true;
@@ -156,6 +177,7 @@
 			careProgressText: careProgressText,
 			careTickedText: careTickedText,
 			careTickAllTarget: careTickAllTarget,
+			careSendTotals: careSendTotals,
 			PROFILE_MS: PROFILE_MS
 		};
 		return;
@@ -579,14 +601,31 @@
 	// Counted off the document, never worked out again here. Which rows may be
 	// ticked is decided in ASH (careTickable, ar_care.ash) and arrives as the
 	// presence of an <input>; this only ever counts what is there.
+	function fill(selector, value) {
+		var holes = document.querySelectorAll(selector);
+		for (var i = 0; i < holes.length; i++) holes[i].textContent = value;
+	}
+
 	function countTicks() {
-		if (!tickedLine) return;
 		var boxes = document.querySelectorAll('.care-tick');
 		var ticked = 0;
 		for (var i = 0; i < boxes.length; i++) {
 			if (boxes[i].checked) ticked++;
 		}
-		tickedLine.textContent = careTickedText(ticked, boxes.length);
+		if (tickedLine) tickedLine.textContent = careTickedText(ticked, boxes.length);
+
+		// THE SUMMARY COUNTS THE SAME TICKS. It is the page's one claim about
+		// what a send would do, and before this it counted who was eligible
+		// instead -- so unticking everybody but three left it saying 190 and
+		// pricing 190 packages.
+		var summary = document.getElementById('care-summary');
+		if (!summary) return;
+		var totals = careSendTotals(ticked,
+			parseInt(summary.getAttribute('data-meat'), 10) || 0,
+			parseInt(summary.getAttribute('data-box'), 10) || 0);
+		fill('#care-summary .care-n', totals.count);
+		fill('#care-summary .care-meat-all', totals.meat);
+		fill('#care-summary .care-box-all', totals.boxes);
 	}
 
 	// ONE LISTENER ON THE TABLE, not 218 on the boxes. A clan of a couple of

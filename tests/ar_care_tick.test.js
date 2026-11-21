@@ -81,6 +81,35 @@ ok('one box off is enough',
 // nothing to act on either way.
 ok('an empty column clears', care.careTickAllTarget([]), false);
 
+/* ---- careSendTotals: what the summary says a send would cost ---- */
+
+// THE BUG THIS IS FOR. The summary was written server-side from the number
+// of ELIGIBLE members, and the Send column then made the number of
+// RECIPIENTS a thing only the browser knows. Unticking everybody but three
+// left the page saying "190 of 239 clan members would get a package — 47500
+// Meat in all, plus 190× (…)" with three rows ticked. COwliCK found it.
+ok('prices what is ticked, not what is eligible',
+	care.careSendTotals(3, 250, 1000), { count: 3, meat: 750, boxes: 3000 });
+
+ok('and the full column',
+	care.careSendTotals(218, 250, 1000), { count: 218, meat: 54500, boxes: 218000 });
+
+// No Meat in the package is the common case, and zero times anything has to
+// stay zero rather than become the gift-box number by accident.
+ok('no Meat set costs no Meat',
+	care.careSendTotals(190, 0, 1000), { count: 190, meat: 0, boxes: 190000 });
+
+ok('nothing ticked costs nothing',
+	care.careSendTotals(0, 250, 1000), { count: 0, meat: 0, boxes: 0 });
+
+// A missing data attribute parses to NaN and is passed in as 0 by the
+// caller; a negative one should not credit you Meat either.
+ok('a nonsense unit cost is treated as none',
+	care.careSendTotals(5, -250, 1000), { count: 5, meat: 0, boxes: 5000 });
+
+ok('and a nonsense count is treated as none',
+	care.careSendTotals(-4, 250, 1000), { count: 0, meat: 0, boxes: 0 });
+
 if (failures > 0) {
 	console.log(failures + ' failure(s)');
 	process.exit(1);

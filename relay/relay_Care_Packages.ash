@@ -419,8 +419,27 @@ void main() {
 
 	/* ---- what would happen ---- */
 
+	// WHAT A SEND WOULD COST, AND IT COUNTS THE TICKS. Every number in this
+	// sentence is the number of recipients times something, and since the
+	// Send column arrived that number is whatever is ticked in the browser --
+	// which the server cannot know. COwliCK, 2026-11-21: "i unselected most
+	// people - only 3 are selected - but the text claims 190 are selected and
+	// miscalculates how much items/meat will be sent."
+	//
+	// So the SENTENCE is still written here and the NUMBERS in it are holes
+	// ar_care.js fills from the live tick count. Which clauses appear depends
+	// on the package and the Meat, not on the ticks, so that stays here too;
+	// what crosses to the browser is three multiplications and the unit
+	// costs they multiply, carried on the <p> itself.
+	//
+	// The alternative was composing the whole sentence in JavaScript, which
+	// would put the package's own words, the gift-box caveat and the
+	// Meat-or-no-Meat branching in a second renderer -- the exact thing the
+	// rest of this page is arranged to avoid.
 	int would = careCount(rows, CARE_WOULD);
-	out.append("<p class='care-summary'>");
+	int CARE_GIFT_BOX = 1000;
+	out.append("<p class='care-summary' id='care-summary'"
+		+ " data-meat='" + careMeat() + "' data-box='" + CARE_GIFT_BOX + "'>");
 	if (!careRosterRead) {
 		// Never "0 of 0 clan members", which is what an empty response read as
 		// before the roster could fail out loud. The reason is different now
@@ -432,23 +451,30 @@ void main() {
 		out.append("<b>Nothing to send yet.</b> " + would + " of "
 			+ count(rows) + " clan members would be eligible.");
 	} else {
-		out.append("<b>" + would + "</b> of " + count(rows)
-			+ " clan members would get a package");
+		// Each hole is written with the value the ticks start at, so the
+		// sentence is right before a line of script has run and right after.
+		out.append("<b><span class='care-n'>" + would + "</span></b> of "
+			+ count(rows) + " clan members would get a package");
 		// What a bulk send actually costs, because most of a clan being
 		// eligible is not obvious from the package on its own. The Meat is "up
 		// to": a gift box is only bought for a recipient a plain kmail is
 		// refused for, and whether someone is in Hardcore or Ronin is not
 		// something this can see.
-		if (careMeat() > 0) out.append(" &mdash; " + (careMeat() * would) + " Meat in all");
+		if (careMeat() > 0) {
+			out.append(" &mdash; <span class='care-meat-all'>"
+				+ (careMeat() * would) + "</span> Meat in all");
+		}
 		if (carePackage() != "") {
 			out.append(careMeat() > 0 ? ", plus " : " &mdash; ");
 			// carePackageText(), not carePackage(): the stored form can hold a
 			// bracketed id for an item whose name has a comma in it, and
 			// "190x (2 soda water, 1 [5590])" is not a sentence.
-			out.append(would + "&times; (" + careHtml(carePackageText(carePackage())) + ")");
+			out.append("<span class='care-n'>" + would + "</span>&times; ("
+				+ careHtml(carePackageText(carePackage())) + ")");
 		}
-		out.append(", and up to " + (would * 1000)
-			+ " Meat of gift boxes for anyone in Hardcore or Ronin.");
+		out.append(", and up to <span class='care-box-all'>"
+			+ (would * CARE_GIFT_BOX)
+			+ "</span> Meat of gift boxes for anyone in Hardcore or Ronin.");
 	}
 	out.append("</p>\n");
 
