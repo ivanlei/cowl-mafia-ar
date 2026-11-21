@@ -209,14 +209,23 @@ ok('a real refusal does',
 
 // THE RETRY, which is the whole of COwliCK's second complaint: "sending stops
 // before all intended packages are sent" is not the expected result, so a
-// momentary failure says what happened and goes round again.
-ok('a retry says which attempt it is on',
-	care.careSendLine(run({ went: 15, left: 175, why: 'KoLmafia did not answer (0).',
-		tries: 2, phase: 'retry' })).text,
-	'Sent 15, 175 to go. KoLmafia did not answer (0). Trying that batch again (2 of 3).');
+// momentary failure says what happened, says how long it is waiting, and goes
+// round again.
+ok('a retry says who, how long and which attempt',
+	care.careSendLine(run({ went: 69, left: 61, why: 'KoLmafia did not answer (404).',
+		tries: 2, waitMs: 10000, one: 'Someclanmate', phase: 'retry' })).text,
+	'Sent 69, 61 to go. KoLmafia did not answer (404). Trying Someclanmate on their own in 10s (2 of 4).');
+
+// Without a name to put to it -- a row that has scrolled out of the table,
+// say -- it still has to read as English.
+ok('and without a name',
+	care.careSendLine(run({ went: 69, left: 61, why: 'Boom.', tries: 3,
+		waitMs: 30000, phase: 'retry' })).text,
+	'Sent 69, 61 to go. Boom. Trying again in 30s (3 of 4).');
 
 ok('and a retry is not an error, it is progress',
-	care.careSendLine(run({ went: 15, left: 175, why: 'x', tries: 2, phase: 'retry' })).kind,
+	care.careSendLine(run({ went: 15, left: 175, why: 'x', tries: 2, waitMs: 2000,
+		phase: 'retry' })).kind,
 	'busy');
 
 // GIVING UP, which is the only ending that leaves anybody unsent, and says
@@ -233,6 +242,19 @@ ok('and the Stop button',
 	care.careSendLine(run({ went: 15, left: 175, phase: 'stopped' })).text,
 	'Sent 15. Stopped, 175 not sent. Redrawing…');
 
+// THE NAMES BELONG TO THE COUNT, not to the sentence after it. Written the
+// other way round the end of a run with somebody set aside read "Sent 0, 5
+// already had one, 1 refused. - Someclanmate (KoL would not take it) Redrawing...",
+// with a full stop in the middle of its own clause.
+ok('an ending names who was set aside, before its full stop',
+	care.careSendLine(run({ went: 0, had: 5, failed: 1,
+		names: ['Someclanmate (KoL would not take it)'], phase: 'done' })).text,
+	'Sent 0, 5 already had one, 1 refused — Someclanmate (KoL would not take it). Redrawing…');
+ok('and so does a stop',
+	care.careSendLine(run({ went: 3, failed: 1, names: ['A (x)'], left: 9,
+		phase: 'stopped' })).text,
+	'Sent 3, 1 refused — A (x). Stopped, 9 not sent. Redrawing…');
+
 // THE REGRESSION, pinned by name. The old line was "Stopped after 15 sent.
 // Reload to see where it got to." -- printed by an `always` handler written as
 // though it were a failure handler, after batches that had gone perfectly, and
@@ -244,12 +266,69 @@ ok('and the Stop button',
 var everyState = ['busy', 'retry', 'done', 'stopped', 'gaveup'];
 everyState.forEach(function (phase) {
 	var text = care.careSendLine(run({ went: 15, had: 1, failed: 1, names: ['A (x)'],
-		left: 175, why: 'something.', tries: 2, phase: phase })).text;
+		left: 175, why: 'something.', tries: 2, waitMs: 2000, phase: phase })).text;
 	ok('nothing in the ' + phase + ' line asks for a reload',
 		/reload/i.test(text), false);
 	ok('and nothing in the ' + phase + ' line claims it stopped after a count',
 		/stopped after/i.test(text), false);
 });
+
+/* ---- careSendAfterFailure: what a 404 costs ---- */
+
+// THE BUG THIS IS THE FIX FOR, and it is worth stating exactly because the
+// shape of it is not obvious. A send KoLmafia will not complete sets an error
+// state; an error state aborts the ASH relay script; ar_care_send.ash writes
+// its whole answer at the end, so nothing has been written; and KoLmafia
+// serves a script that wrote nothing as HTTP 404. So ONE recipient KoL will
+// not take produces a 404 that says nothing about who, and the first version
+// of the retry answered it by asking for the same three people three times
+// and then stopping -- "Sent 69. KoLmafia did not answer (404). 61 not sent."
+//
+// A FAILURE IS NARROWED BEFORE IT IS JUDGED: first to one recipient, then
+// over growing waits, and only then is that recipient set aside.
+ok('a failed batch is narrowed to its head',
+	care.careSendAfterFailure(3, 1, 0), { act: 'isolate', waitMs: 2000 });
+ok('however big it was',
+	care.careSendAfterFailure(2, 1, 0).act, 'isolate');
+
+// And then the same person, over waits that grow: two seconds only ever rode
+// out a stutter, and the thing that fixes a KoL that has had too much through
+// it in the last minute is a pause.
+ok('then the same one again, after ten seconds',
+	care.careSendAfterFailure(1, 2, 0), { act: 'again', waitMs: 10000 });
+ok('and after thirty',
+	care.careSendAfterFailure(1, 3, 0), { act: 'again', waitMs: 30000 });
+
+// FOUR GOES AND THEN PAST THEM. This is the line that matters: the run
+// carries on, which is the whole of COwliCK's requirement that sending must
+// not "stop before all intended packages are sent".
+ok('and then that one is set aside, not the run',
+	care.careSendAfterFailure(1, 4, 0), { act: 'skip', waitMs: 0 });
+ok('and a fifth attempt would be too, if it got there',
+	care.careSendAfterFailure(1, 9, 0).act, 'skip');
+
+// Set aside with others already set aside is still just a skip, until it is
+// so many in a row that the recipients cannot be what they have in common.
+ok('a second awkward clanmate is still only a skip',
+	care.careSendAfterFailure(1, 4, 1).act, 'skip');
+ok('and a third',
+	care.careSendAfterFailure(1, 4, 2).act, 'skip');
+ok('and a fourth',
+	care.careSendAfterFailure(1, 4, 3).act, 'skip');
+ok('the fifth in a row is not about the recipients any more',
+	care.careSendAfterFailure(1, 4, 4), { act: 'stop', waitMs: 0 });
+
+// A SKIP RESETS THE COUNT in the loop, so this only ever fires on five
+// consecutive ones -- five scattered through two hundred recipients must not
+// add up to a stop.
+ok('a run of skips is what counts, and the loop clears it on any answer',
+	care.careSendAfterFailure(1, 4, 0).act, 'skip');
+
+// Narrowing never stops, whatever has gone before: a batch of three has not
+// yet told anybody which of the three is the trouble, so it cannot be the
+// evidence that there is no point carrying on.
+ok('a batch is narrowed even when the run of skips is long',
+	care.careSendAfterFailure(3, 1, 4).act, 'isolate');
 
 if (failures > 0) {
 	console.log(failures + ' failure(s)');
