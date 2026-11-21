@@ -158,6 +158,16 @@ you get no box at all: those are not opinions to overrule.
 it again clears it. Any box still off means the press fills; only a column
 that is already full empties, so the second press always undoes the first.
 
+**A Packages column says what this page has sent them lately** — "2
+received", always a count, never blank. It counts the packages in your sent
+mail carrying the tool's own marker, in the last two weeks, which is how long
+KoL keeps an Outbox anyway. Press a non-zero one and the row unfolds to show
+each package's date and what was in it.
+
+A package that went as a gift box — which is what happens for a recipient in
+Hardcore or Ronin — reads as the box rather than its contents, because the
+box is all your Outbox records of it.
+
 **The summary counts the ticks, not who is eligible.** Untick down to three
 and it prices three packages — the Meat, the items and the gift boxes all
 follow what is ticked, because that is who a send would go to.

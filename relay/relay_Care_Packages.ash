@@ -177,7 +177,52 @@ void careRow(buffer out, care_row r) {
 	}
 	out.append("</td>");
 
+	// WHAT THIS PAGE HAS SENT THEM LATELY, and what was in it. COwliCK,
+	// 2026-11-21: "a final column in the player roster called 'packages'.
+	// value is always: <#> received."
+	//
+	// ALWAYS A COUNT, even when it is nought, because a blank cell and a
+	// cell saying none are different claims and only one of them is being
+	// made here: the mailbox was read and this is what it said.
+	//
+	// It costs nothing to know. The Outbox is walked in full on every page
+	// load already -- that is how "already had one" is decided -- so this
+	// column is the same chunks read for two more things.
+	care_gift [int] gifts = careGiftsFor(careSentRecord, r.member.who);
+	out.append("<td class='care-gifts'>");
+	if (count(gifts) > 0) {
+		// A LINK ONLY WHEN THERE IS SOMETHING BEHIND IT. A pressable-looking
+		// "0 received" that opens nothing is worse than plain text.
+		out.append("<a href='#' class='care-gift-open'>"
+			+ count(gifts) + " received</a>");
+	} else {
+		out.append("<span class='care-gift-none'>0 received</span>");
+	}
+	out.append("</td>");
+
 	out.append("</tr>");
+
+	// THE DETAIL, WRITTEN HERE AND HIDDEN, not fetched or composed when you
+	// press. Everything about it is known at render time, the page has no
+	// second renderer by design, and a row that unfolds instantly is the
+	// whole difference between this and something that feels like a request.
+	if (count(gifts) > 0) {
+		out.append("<tr class='care-gift-row' hidden><td colspan='5'>");
+		out.append("<ul class='care-gift-list'>");
+		foreach i, g in gifts {
+			out.append("<li><span class='care-gift-when'>"
+				+ careHtml(g.when == "" ? "date unreadable" : g.when)
+				+ "</span> ");
+			// A wrapped package lists the box and not its contents: that is
+			// all the Outbox records of it. Saying so beats showing the box
+			// as though it were the present.
+			out.append(g.what == ""
+				? "<i>nothing the mailbox lists</i>"
+				: careHtml(g.what));
+			out.append("</li>");
+		}
+		out.append("</ul></td></tr>");
+	}
 }
 
 // The rows, in three groups: ticked, then yours to tick, then locked.
@@ -568,7 +613,8 @@ void main() {
 			+ "<td class='care-rank'>Rank</td>"
 			+ "<td class='care-seen'>Last Login</td>"
 			+ "<td class='care-send'><a href='#' id='care-tick-all'"
-			+ " title='tick them all, or clear them'>Send</a></td></tr>");
+			+ " title='tick them all, or clear them'>Send</a></td>"
+			+ "<td class='care-gifts'>Packages</td></tr>");
 		careRows(out, rows);
 		out.append("</table>\n");
 	}

@@ -538,3 +538,48 @@ a {
 	min-height: 0;
 	text-align: left;
 }
+
+/* The Packages column: how many this page has sent them lately, and what was
+ * in them. */
+.care-gifts {
+	white-space: nowrap;
+}
+
+/* A LINK ONLY WHEN THERE IS SOMETHING BEHIND IT. "0 received" is plain text
+ * -- a pressable-looking thing that opens nothing is worse than no
+ * affordance at all, and most of the column is zeroes. */
+.care-gift-none {
+	color: var(--care-quiet);
+}
+
+.care-gift-open {
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.care-gift-open:hover,
+.care-gift-shown {
+	text-decoration: underline;
+}
+
+/* The unfolded detail. Indented under the name rather than spread across the
+ * table, so it reads as belonging to the row above it and not as a new one. */
+.care-gift-row td {
+	border-bottom: 1px solid var(--care-rule-soft);
+	padding: 0 0 6px;
+}
+
+.care-gift-list {
+	margin: 0;
+	padding-left: 2.2em;
+}
+
+.care-gift-list li {
+	color: var(--care-ink);
+	line-height: 1.5;
+}
+
+.care-gift-when {
+	color: var(--care-quiet);
+	white-space: nowrap;
+}

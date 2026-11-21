@@ -849,6 +849,28 @@
 			});
 		}
 
+		// WHAT THEY HAVE HAD, unfolded under their row. The detail is already
+		// in the page, hidden, so this only flips `hidden` -- there is
+		// nothing to fetch and nothing to compose, which is why it opens
+		// instantly and why there is no spinner to get wrong.
+		//
+		// ONE LISTENER ON THE TABLE, like the ticks: a clan is a couple of
+		// hundred rows and a listener each is a couple of hundred listeners
+		// for something pressed once in a while.
+		if (table) {
+			table.addEventListener('click', function (event) {
+				var hit = event.target;
+				if (!hit || !hit.classList
+					|| !hit.classList.contains('care-gift-open')) return;
+				event.preventDefault();
+				var row = hit.closest('tr');
+				var detail = row && row.nextElementSibling;
+				if (!detail || !detail.classList.contains('care-gift-row')) return;
+				detail.hidden = !detail.hidden;
+				hit.classList.toggle('care-gift-shown', !detail.hidden);
+			});
+		}
+
 		var all = document.getElementById('care-tick-all');
 		if (all) {
 			all.onclick = function (event) {

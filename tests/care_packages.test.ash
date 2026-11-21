@@ -156,6 +156,77 @@ void main() {
 	// friend quoting the marker back at you is not a package you sent.
 	check("sent: a marked message RECEIVED does not count", !(sent.who contains 107));
 
+	/* ---- what each of them got, and when ---- */
+
+	// The Packages column reads these, and they cost nothing to collect: the
+	// Outbox is walked in full on every page load anyway, so this is the
+	// same chunks read for two more things.
+	//
+	// FOUR GIFTS AND THREE RECIPIENTS, because 105 has two. That is the
+	// whole reason the gifts are a flat list and not a map keyed by who:
+	// "how many has this person had" is the question the column answers.
+	checkInt("gifts: one per marked message, not per recipient",
+		count(sent.gifts), 4);
+	checkInt("gifts: the one who had two", count(careGiftsFor(sent, 105)), 2);
+	checkInt("gifts: the ones who had one", count(careGiftsFor(sent, 101)), 1);
+	checkInt("gifts: and somebody who had none",
+		count(careGiftsFor(sent, 999)), 0);
+
+	care_gift [int] theirs = careGiftsFor(sent, 101);
+	check("gifts: the date is KoL's own words",
+		theirs[0].when.contains_text("November 08, 2026"));
+	check("gifts: and it parsed into a number of days", theirs[0].days >= 0);
+	checkString("gifts: what was in it", theirs[0].what, "soda water");
+
+	// A GIFT BOX HIDES ITS CONTENTS and this does not pretend otherwise: the
+	// Outbox lists the wrapper and nothing about what is inside it, so a
+	// wrapped package reads as the box it went in.
+	care_gift [int] wrapped = careGiftsFor(sent, 105);
+	check("gifts: a wrapped one reads as the box",
+		wrapped[0].what.contains_text("wrapper") || wrapped[1].what.contains_text("wrapper"));
+
+	// Meat is "You gain 11 Meat." and not an acquire line at all, so it is
+	// matched separately or it is silently dropped from every package that
+	// carries any.
+	checkString("gifts: Meat alone", careGiftContents(
+		"<td>You gain 11 Meat.</td>"), "11 Meat");
+	checkString("gifts: an item and Meat together", careGiftContents(
+		"You acquire an item: <b>soda water</b> ... You gain 250 Meat."),
+		"soda water, 250 Meat");
+	checkString("gifts: a plural acquire keeps its count", careGiftContents(
+		"You acquire <b>2 love songs of smoldering passion</b>"),
+		"2 love songs of smoldering passion");
+	// KoL wraps a long name and leaves the break's space behind in the text.
+	checkString("gifts: a name broken across a line is put back together",
+		careGiftContents("You acquire an item: <b>less-than-three- shaped box</b>"),
+		"less-than-three-shaped box");
+	checkString("gifts: nothing attached is nothing, not a stray comma",
+		careGiftContents("<td>just words</td>"), "");
+
+	// TWO WEEKS IS THE WINDOW, which matters for the Saved box: the Outbox
+	// deletes itself after a fortnight and Saved never does, so without the
+	// filter a package saved last winter would read as received recently.
+	checkInt("gifts: the window is a fortnight", CARE_RECENT_DAYS, 14);
+	care_sent old;
+	old.read = true;
+	care_gift stale;
+	stale.who = 101;
+	stale.when = "January 01, 2026";
+	stale.days = CARE_RECENT_DAYS + 1;
+	stale.what = "soda water";
+	old.gifts[0] = stale;
+	checkInt("gifts: one older than the window is not counted",
+		count(careGiftsFor(old, 101)), 0);
+	old.gifts[0].days = CARE_RECENT_DAYS;
+	checkInt("gifts: and one exactly on it is",
+		count(careGiftsFor(old, 101)), 1);
+	// A date KoL writes in a shape careDaysSince cannot read comes back as
+	// -1, and dropping those would undercount somebody silently -- which is
+	// the opposite of what a column against double-sending should do.
+	old.gifts[0].days = -1;
+	checkInt("gifts: an unreadable date counts rather than vanishing",
+		count(careGiftsFor(old, 101)), 1);
+
 	/* ---- a response that is not a profile at all ---- */
 
 	// The same shape of guard as careLooksLikeBox above, and it earns its place

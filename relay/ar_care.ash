@@ -1021,10 +1021,59 @@ care_login careLastLogin(int who, int [int] budget) {
 // has had a package", so a send would go to everybody a second time. So it
 // fails closed -- `read` false means the page refuses to offer a send at all,
 // rather than offering one built on a list it could not get.
+// HOW LONG A PACKAGE COUNTS AS RECENT. Two weeks, which is COwliCK's number
+// and is also KoL's: the Outbox says "Messages in this mailbox will be
+// deleted after two weeks", so for the Outbox alone the window and the
+// mailbox agree and the filter never fires. It is here for the Saved box,
+// which the same read walks and which keeps a message for ever -- without
+// it, a package saved last winter would be counted as received recently.
+int CARE_RECENT_DAYS = 14;
+
+// One package, as the Outbox remembers it.
+record care_gift {
+	int who;
+	string when;    // KoL's own words, "November 08, 2026, 06:00PM"
+	int days;       // whole days ago, or -1 if the date would not parse
+	string what;    // "soda water, 11 Meat", or the gift box for a wrapped one
+};
+
 record care_sent {
 	boolean read;
 	boolean [int] who;
+	// Every marked package found, flat. Kept as a list rather than a map
+	// keyed by recipient because somebody can have had two, and the count of
+	// them is the whole point of the column this feeds.
+	care_gift [int] gifts;
 };
+
+// What a message says arrived in it, in KoL's own words.
+//
+// A GIFT BOX HIDES ITS CONTENTS, and that is not a gap this can close: when
+// csend falls back to a gift box for somebody in Hardcore or Ronin, the
+// Outbox entry lists the BOX -- "less-than-three-shaped box" -- and nothing
+// about what is inside it. So a wrapped package reads as the box it went in,
+// which is honest about what the mailbox actually records.
+string careGiftContents(string chunk) {
+	buffer out;
+
+	// "You acquire an item: <b>pink candy heart</b>" and the plural form
+	// "You acquire <b>2 love songs of smoldering passion</b>" are one
+	// pattern with an optional middle.
+	matcher got = create_matcher("You acquire (?:an item: )?<b>([^<]+)</b>", chunk);
+	while (got.find()) {
+		if (out.length() > 0) out.append(", ");
+		// KoL wraps a long name across a line and leaves the space in.
+		out.append(got.group(1).replace_string("- ", "-"));
+	}
+
+	// Meat is "You gain 11 Meat." and not an acquire at all.
+	matcher meat = create_matcher("You gain ([\\d,]+) Meat", chunk);
+	if (meat.find()) {
+		if (out.length() > 0) out.append(", ");
+		out.append(meat.group(1) + " Meat");
+	}
+	return out.to_string();
+}
 
 // Whether a response is the mailbox that was asked for. Every one of these
 // pages names itself in its own header, so its absence means the request did
@@ -1053,8 +1102,44 @@ void careParseSentBox(string page, care_sent sent) {
 	foreach n, chunk in split_string(page, "name=\"sel\\d+\"") {
 		if (!chunk.contains_text(CARE_MARK)) continue;
 		matcher to = create_matcher("<b>To</b> <a href=\"showplayer\\.php\\?who=(\\d+)\"", chunk);
-		if (to.find()) sent.who[to.group(1).to_int()] = true;
+		if (!to.find()) continue;
+		int who = to.group(1).to_int();
+		sent.who[who] = true;
+
+		// THE RECORD OF WHAT WENT, which the Packages column reads. Parsed
+		// from the same chunk the marker was found in, so it costs no
+		// request: the Outbox is already read in full on every page load.
+		care_gift g;
+		g.who = who;
+		g.days = -1;
+		// "<b>Date:</b> Sunday, November 08, 2026, 06:00PM". The day part is
+		// the same shape careDaysSince() already reads out of a profile, so
+		// the arithmetic is shared rather than written twice.
+		matcher when = create_matcher("<b>Date:</b>\\s*[A-Za-z]+, ([A-Za-z]+ \\d+, \\d+)(, [\\d:]+[AP]M)?", chunk);
+		if (when.find()) {
+			g.when = when.group(1) + (when.group(2) == "" ? "" : when.group(2));
+			g.days = careDaysSince(when.group(1));
+		}
+		g.what = careGiftContents(chunk);
+		sent.gifts[count(sent.gifts)] = g;
 	}
+}
+
+// The packages one member has had inside the window, newest first as the
+// mailbox lists them.
+//
+// A DATE THAT WOULD NOT PARSE COUNTS. days is -1 then, and dropping those
+// would quietly undercount somebody because KoL changed a date format --
+// which is the opposite of what a column that exists to stop double-sending
+// should do when it is unsure.
+care_gift [int] careGiftsFor(care_sent sent, int who) {
+	care_gift [int] mine;
+	foreach i, g in sent.gifts {
+		if (g.who != who) continue;
+		if (g.days > CARE_RECENT_DAYS) continue;
+		mine[count(mine)] = g;
+	}
+	return mine;
 }
 
 care_sent careAlreadySent() {
@@ -1258,9 +1343,17 @@ boolean careTickedByDefault(string verdict) {
 boolean careRosterRead = false;
 boolean careSentRead = false;
 
+// WHAT THE MAILBOX SAID, kept so the page can draw the Packages column from
+// the read carePlan() has already paid for. A second careAlreadySent() would
+// be a second walk of the Outbox on every page load, for an answer this one
+// already has. Read it straight after calling carePlan(), the same contract
+// the two flags above keep.
+care_sent careSentRecord;
+
 care_row [int] carePlan() {
 	care_sent sent = careAlreadySent();
 	careSentRead = sent.read;
+	careSentRecord = sent;
 	int mine = my_id().to_int();
 	int window = careDays();
 
