@@ -435,7 +435,7 @@
 	// clear the name and it stops being part of the package.
 	function packageLines() {
 		var lines = [];
-		var rows = document.querySelectorAll('#care-rows .care-row');
+		var rows = document.querySelectorAll('#care-rows .care-send-row');
 		for (var i = 0; i < rows.length; i++) {
 			var name = rows[i].querySelector('.care-item').value.trim();
 			if (!name) continue;
@@ -473,7 +473,7 @@
 	}
 
 	function bindPackage() {
-		var rows = document.querySelectorAll('#care-rows .care-row');
+		var rows = document.querySelectorAll('#care-rows .care-send-row');
 		for (var i = 0; i < rows.length; i++) bindRow(rows[i]);
 
 		var add = document.getElementById('care-add-row');
@@ -481,7 +481,7 @@
 			add.onclick = function (event) {
 				// A link, the way KoL's + is, so it needs the href stopped.
 				event.preventDefault();
-				var all = document.querySelectorAll('#care-rows .care-row');
+				var all = document.querySelectorAll('#care-rows .care-send-row');
 				if (!all.length) return;
 				// CLONED FROM THE LAST ROW rather than built here, so there is
 				// one description of what a row is and it lives in the ASH
@@ -496,6 +496,11 @@
 				// holding two.
 				var stale = fresh.querySelector('.ar-combo-list');
 				if (stale) stale.parentNode.removeChild(stale);
+				// The + lives in the first row, so cloning that row -- which
+				// is what happens when it is the only one -- would carry a
+				// second + down the stack, each with the same id.
+				var plus = fresh.querySelector('.care-plus');
+				if (plus) plus.parentNode.removeChild(plus);
 				document.getElementById('care-rows').appendChild(fresh);
 				bindRow(fresh);
 				fresh.querySelector('.care-item').focus();

@@ -84,16 +84,33 @@ string careSnapshotAgeText() {
 // an item you do not hold yet. ar_combo.js does both; the wrapper below is
 // what it hangs the list off, and it has to be in the markup rather than
 // made by the script so that cloning a row clones a whole control.
-void careItemRow(buffer out, int qty, string named) {
-	out.append("<div class='care-row'>");
+// EVERY ROW CARRIES ITS OWN BOLD "Send:", which is KoL's own shape and not a
+// guess: its addlist() writes `<b>Send: <input size=2 value=1></b><select>`
+// for each of the eleven rows it can add, so the label repeats down the
+// stack rather than heading it once.
+//
+// NOT class='care-row'. That name belongs to a clan member's <tr> further
+// down this file, and giving it to these rows as well put `display: flex` on
+// every row of the member table -- which stopped being a table and laid each
+// row out to fit its own contents, columns and all. COwliCK found it;
+// I had it on screen twice and read past it.
+void careItemRow(buffer out, int qty, string named, boolean withPlus) {
+	out.append("<div class='care-send-row'>");
+	out.append("<b class='care-send-label'>Send:</b>");
 	out.append("<input class='care-qty' type='text' inputmode='numeric'"
 		+ " size='2' value=" + careAttr(qty + "") + ">");
 	out.append("<span class='ar-combo care-combo'>");
-	out.append("<input class='care-item care-text' type='text'"
+	out.append("<input class='care-item' type='text'"
 		+ " autocomplete='off' spellcheck='false'"
 		+ " placeholder='type to find an item'"
 		+ " value=" + careAttr(named) + ">");
 	out.append("</span>");
+	// After the first row only, the way KoL's is: its + sits in the static
+	// markup beside row one and the rows it adds carry none.
+	if (withPlus) {
+		out.append("<a id='care-add-row' class='care-plus' href='#'"
+			+ " title='another item'><b>+</b></a>");
+	}
 	out.append("</div>");
 }
 
@@ -282,32 +299,17 @@ void main() {
 	// exactly the items that are set and one more blank.
 	out.append(arBoxStart("Package"));
 
-	// LAID OUT LIKE kmail: a label column with the controls beside it, the
-	// rows stacked under the one "Send" the way KoL stacks its eleven under
-	// its one, and the + a bold link at the end of the first row rather than
-	// a button of its own below them.
-	out.append("<table class='care-setup'>");
-
-	out.append("<tr><td class='care-label'>Send</td><td>");
-	out.append("<div class='care-sendbox'>");
-	out.append("<div id='care-rows' class='care-rows'>");
-	care_part [int] parts = carePackageParts(carePackage());
-	foreach i, p in parts {
-		careItemRow(out, p.qty, p.what == $item[none] ? p.named : p.what.to_string());
-	}
-	careItemRow(out, 1, "");
-	out.append("</div>");
-	// Beside the stack rather than under it, level with the first row, which
-	// is where KoL puts its own.
-	out.append("<a id='care-add-row' class='care-plus' href='#'"
-		+ " title='another item'><b>+</b></a>");
-	out.append("</div>");
-	out.append("</td></tr>");
-
-	out.append("<tr><td class='care-label'>Send Meat</td><td>");
-	out.append("<input id='care-meat' class='care-qty' type='text'"
-		+ " inputmode='numeric' size='7' value=" + careAttr(careMeat() + "") + ">");
-	out.append("</td></tr>");
+	// KoL'S OWN LAYOUT, in its own order: the whole form is inside a
+	// <center>, the message comes first under a plain "Message:" on a line of
+	// its own, then the Send rows with their bold labels, then a bold
+	// "Send Meat:" with a size-5 box. COwliCK, 2026-11-21: "make it look more
+	// like the kmail image. placement, layout, fonting."
+	//
+	// The note moved to the TOP with that, because that is where kmail's
+	// message is. It was at the foot when the box was a settings table and
+	// the order did not mean anything; now the box is a copy of a form whose
+	// order is the thing being copied.
+	out.append("<div class='care-kmail'>");
 
 	// THE EFFECTIVE NOTE, not the raw preference: careNote() answers the
 	// default sentence for an unset one, and a box that is empty when the
@@ -315,18 +317,35 @@ void main() {
 	// Clearing it is still how you get the default back -- careBadValue()
 	// allows an empty value for exactly that.
 	//
-	// A TEXTAREA, because kmail's Message is one and this is the same thing:
-	// the words that arrive with the package. Three rows rather than ten --
-	// a note is a sentence, not a letter -- and it grows if you write more.
-	out.append("<tr><td class='care-label'>Package Note</td><td>");
-	out.append("<textarea id='care-note-text' class='care-note-box' rows='3'"
+	// The label is plain rather than bold, like KoL's "Message:", which is
+	// the one label on that form that is not in <b>.
+	out.append("<div class='care-note-label'>Package Note:</div>");
+	out.append("<textarea id='care-note-text' class='care-note-box' rows='8'"
 		+ " spellcheck='true'>");
 	out.append(careHtml(careNote()));
 	out.append("</textarea>");
-	out.append("</td></tr>");
-	out.append("</table>\n");
 
-	out.append("<div id='care-package-said' class='care-said'></div>\n");
+	// Left-aligned inside the centred block, so the quantity boxes line up
+	// in a column down the stack and only the row carrying the + runs wider
+	// -- which is what KoL's does too.
+	out.append("<div id='care-rows' class='care-rows'>");
+	care_part [int] parts = carePackageParts(carePackage());
+	int row = 0;
+	foreach i, p in parts {
+		careItemRow(out, p.qty, p.what == $item[none] ? p.named : p.what.to_string(),
+			row == 0);
+		row = row + 1;
+	}
+	careItemRow(out, 1, "", row == 0);
+	out.append("</div>");
+
+	out.append("<div class='care-meat-line'><b>Send Meat:</b> ");
+	out.append("<input id='care-meat' class='care-qty care-meat' type='text'"
+		+ " inputmode='numeric' size='5' value=" + careAttr(careMeat() + "") + ">");
+	out.append("</div>");
+
+	out.append("<div id='care-package-said' class='care-said'></div>");
+	out.append("</div>\n");
 
 	out.append(arBoxEnd() + "\n");
 

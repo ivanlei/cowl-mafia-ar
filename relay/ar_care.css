@@ -134,27 +134,62 @@ a {
  * THE ITEM BOX TAKES WHAT IS LEFT, which is what makes a column of them line
  * up: the quantity is three digits wide for ever and the names are not, so
  * the item box flexes and the pair keep their edges down the box. */
-/* The stack of rows with KoL's + beside it, level with the first one.
- *
- * `min-width: 0` on the stack is what lets the combo inside it actually
- * flex: without it a flex item will not shrink below its content's own
- * minimum, and the row stayed as narrow as the longest item name. */
-.care-sendbox {
-	align-items: flex-start;
-	display: flex;
+/* The Package box, which is a copy of KoL's Send a Message form: centred,
+ * the message first under a plain label, then the Send rows, then a bold
+ * Send Meat. KoL wraps the whole thing in a <center> and this is that. */
+.care-kmail {
+	padding: 4px 0 2px;
+	text-align: center;
 }
 
+/* Plain, not bold, and on a line of its own -- the one label on KoL's form
+ * that is not in <b> is "Message:". */
+.care-note-label {
+	margin-bottom: 3px;
+}
+
+/* The message box. Sized to the Send rows below it so the box reads as one
+ * column of controls rather than two widths stacked, and resizable
+ * downwards only: sideways would take it out past the section border. */
+.care-note-box {
+	background: var(--care-page);
+	border: 1px solid var(--care-rule);
+	border-radius: 3px;
+	color: var(--care-ink);
+	font: inherit;
+	max-width: 100%;
+	padding: 4px 6px;
+	resize: vertical;
+	text-align: left;
+	width: 27em;
+}
+
+/* LEFT-ALIGNED INSIDE THE CENTRED BLOCK. Centring each row separately would
+ * stagger the quantity boxes, since the row carrying the + is wider than the
+ * rest; this lines the columns up and lets only that row run further right,
+ * which is what KoL's does. */
 .care-rows {
-	flex: 1 1 auto;
-	max-width: 28em;
-	min-width: 0;
+	display: inline-block;
+	margin: 10px 0 2px;
+	text-align: left;
 }
 
-.care-row {
+/* NOT .care-row. That class is a clan member's <tr> further down the page,
+ * and this rule on it took the member table apart -- every row became a flex
+ * container and the columns stopped lining up with the header. */
+.care-send-row {
 	align-items: center;
 	display: flex;
 	gap: 6px;
 	margin-bottom: 4px;
+}
+
+.care-send-label {
+	white-space: nowrap;
+}
+
+.care-meat-line {
+	margin: 10px 0 2px;
 }
 
 /* THE QUANTITY IS TWO CHARACTERS, the way KoL's is (`size=2`). A number input
@@ -175,38 +210,29 @@ a {
 
 /* The combo takes the rest of the row, and its list -- positioned against
  * this -- comes out the same width. */
+/* A FIXED WIDTH, not a flexing one. Every Send row is then the same width,
+ * the list under each box is the same width, and the message box above can
+ * be sized to match -- which is what makes the stack read as one column.
+ * KoL's own select is a fixed width too, being a select. */
 .care-combo {
-	flex: 1 1 auto;
-	min-width: 0;
+	flex: 0 0 auto;
+	max-width: 100%;
+	width: 22em;
 }
 
 /* KoL'S PLUS: a bold link at the end of the first row, not a button under
  * them. Sized up a little, like KoL's `<font size=+1>`, because a single
  * character is a small thing to aim at. */
+/* KoL'S PLUS: a bold link after the first row's item box, sized up a little
+ * the way its `<font size=+1>` does, because one character is a small thing
+ * to aim at on a tablet. */
 .care-plus {
-	display: inline-block;
 	font-size: 16px;
 	line-height: 1;
-	margin-left: 8px;
-	padding: 4px 8px;
+	padding: 4px 6px;
 	text-decoration: none;
-	vertical-align: top;
 }
 
-/* The note, which is kmail's Message box: the same width as an item row's
- * combo so the box reads as one column of controls, and resizable downwards
- * only -- sideways would take it out past the section border. */
-.care-note-box {
-	background: var(--care-page);
-	border: 1px solid var(--care-rule);
-	border-radius: 3px;
-	color: var(--care-ink);
-	font: inherit;
-	max-width: 28em;
-	padding: 4px 6px;
-	resize: vertical;
-	width: 100%;
-}
 
 /* WHAT A CONTROL JUST SAID, under the box it belongs to -- there are two of
  * these now, one per box, because a refusal caused by a checkbox in Config
@@ -366,6 +392,21 @@ a {
 	 * and is still better than a page that slides under your thumb. */
 	.care-who, .care-seen, .care-send {
 		overflow-wrap: anywhere;
+	}
+
+	/* THE SEND ROW GIVES UP ITS FIXED WIDTH HERE. 22em of item box plus the
+	 * label, the quantity and the gaps is 380px of row in 341px of box, and
+	 * the page scrolled sideways by 63. Measured at 375. The stack goes
+	 * block so the rows have a width to flex inside, and the item box takes
+	 * whatever the label and quantity leave. */
+	.care-rows {
+		display: block;
+	}
+
+	.care-combo {
+		flex: 1 1 auto;
+		min-width: 0;
+		width: auto;
 	}
 }
 

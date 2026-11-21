@@ -233,6 +233,60 @@ def check_tests(files, fail):
             fail(f, "; ".join(detail[-4:]) or "failed")
 
 
+# A class that is on a <tr> somewhere, and the display values that stop a <tr>
+# being a table row. `display: flex` on one makes the row lay its cells out to
+# fit their own contents, so the columns stop lining up with the header -- and
+# nothing else here notices, because every file still parses and every symbol
+# still resolves. That shipped once (the Package box's item rows and a clan
+# member's row were both called care-row) and was found by looking at the page.
+#
+# The class attribute is built by concatenation -- `"<tr class='care-row care-"
+# + r.verdict + "'>"` -- so there is no closing quote to match on. Read up to
+# whichever comes first, the quote or the end of the ASH string literal.
+TR_CLASS = re.compile(r"""<tr\s+class='([^'"]*)""", re.I)
+CSS_COMMENT = re.compile(r"/\*.*?\*/", re.S)
+CSS_RULE = re.compile(r"([^{}]+)\{([^{}]*)\}", re.S)
+LAYOUT_OUT = ("flex", "grid", "block", "inline-block", "inline-flex", "contents")
+
+
+def check_row_classes(files, fail):
+    on_rows = {}
+    for f in files:
+        if not f.endswith(".ash"):
+            continue
+        for m in TR_CLASS.finditer(read(f)):
+            for name in re.findall(r"[A-Za-z][-A-Za-z0-9_]*", m.group(1)):
+                on_rows.setdefault(name, f)
+    if not on_rows:
+        return
+
+    for f in files:
+        if not f.endswith(".css"):
+            continue
+        # Comments first: the prose in this repository's stylesheets talks
+        # about `display: flex` and about braces, and a rule parser that
+        # reads a comment finds both.
+        body_text = CSS_COMMENT.sub("", read(f))
+        for m in CSS_RULE.finditer(body_text):
+            selector, body = m.group(1), m.group(2)
+            if selector.lstrip().startswith("@"):
+                continue
+            display = re.search(r"display\s*:\s*([a-z-]+)", body)
+            if not display or display.group(1) not in LAYOUT_OUT:
+                continue
+            # A bare `.foo` only. A selector with an ancestor in it
+            # (`#care-rows .foo`) is already scoped away from the table.
+            for piece in selector.split(","):
+                piece = piece.strip()
+                if not re.fullmatch(r"\.[-A-Za-z0-9_]+", piece):
+                    continue
+                name = piece[1:]
+                if name in on_rows:
+                    fail(f, f"{piece} sets display:{display.group(1)}, but"
+                            f" {on_rows[name]} puts that class on a <tr> --"
+                            " it will stop being a table row")
+
+
 def main():
     files = tracked()
     shipped = set(files)
@@ -245,6 +299,7 @@ def main():
     check_assets(files, fail, shipped)
     check_imports(files, fail, shipped)
     check_ash_symbols(files, fail, shipped)
+    check_row_classes(files, fail)
     check_tests(files, fail)
 
     if problems:
