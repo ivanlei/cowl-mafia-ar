@@ -519,6 +519,49 @@ boolean careLooksLikeProfile(string page) {
 	return page.contains_text("Account Created:");
 }
 
+// What KoL says instead of a date for somebody in Valhalla. Written into the
+// lastLogin field, where it cannot collide with anything: every other value
+// there is one of KoL's own dates, "November 10, 2026".
+//
+// A FIELD VALUE RATHER THAN A NEW RECORD FIELD, and that is the whole reason:
+// a new field changes the shape of ar_care_logins.txt, which means bumping
+// CARE_LOGIN_FORMAT, which throws away every row held and asks a 239-member
+// clan to be walked again from nothing. For a state three people are ever in
+// at once, that is a bad trade -- and "astral" IS the last login, as far as
+// anything can tell. COwliCK asked for it in those words, 2026-11-21: "mark
+// last login as astral".
+string CARE_ASTRAL_LOGIN = "astral";
+
+// SOMEBODY MID-ASCENSION, whose profile is a stub. KoL serves no Account
+// Created and no Last Login for an astral spirit -- the whole page is the
+// name, the id, "Level", and "Astral Spirit" -- so careLooksLikeProfile() is
+// right to say it is not a profile, and before this that answer was never
+// cached and the member sat in the scan queue for ever. The page then said
+// "KoLmafia stopped sending profiles back", which is a lie about a server
+// that answered 200 with exactly what it meant to send.
+//
+// ANCHORED ON THE IMAGE, not on the words. "Astral Spirit" is a phrase a
+// player could put in their own profile text; /images/otherimages/spirit.gif
+// is KoL's own markup for the stub and appears on nothing else. Checked
+// against the real page, 2026-11-21.
+boolean careLooksLikeAstral(string page) {
+	return page.contains_text("otherimages/spirit.gif");
+}
+
+// WHETHER THE REQUEST CAME BACK WITH ANYTHING WORTH RECORDING, which is the
+// question careLastLogin() actually asks and is worth a name of its own: the
+// two ways of answering it are nothing alike, and the difference between
+// "this is not an answer" and "this is an answer with no date in it" is the
+// whole of the bug this was written for.
+//
+// Its own function so that a test can reach it. careLastLogin() cannot be
+// called without a live KoL, so the decision inside it was checked by hand or
+// not at all -- and reverting it to careLooksLikeProfile() alone puts the
+// stuck queue straight back with nothing failing.
+boolean careProfileAnswered(string page) {
+	return careLooksLikeProfile(page) || careLooksLikeAstral(page);
+}
+
 record care_member {
 	int who;
 	string name;
@@ -761,10 +804,19 @@ care_login careLastLogin(int who, int [int] budget) {
 	// The budget is still spent: the request happened. That is also what stops
 	// a scan spinning on a clan KoL is refusing to answer about -- the batch
 	// reports nothing fetched and the page stops asking.
-	if (!careLooksLikeProfile(page)) return notyet;
+	//
+	// AN ASTRAL SPIRIT IS AN ANSWER, THOUGH, and has to be taken as one. Its
+	// page will never have a last login on it, so leaving it uncached is not
+	// "try again next batch", it is a member who can never leave the queue --
+	// the scan stops one short for ever and blames KoLmafia for it.
+	if (!careProfileAnswered(page)) return notyet;
 
 	care_login entry;
-	entry.lastLogin = careParseLastLogin(page);
+	entry.lastLogin = careLooksLikeAstral(page)
+		? CARE_ASTRAL_LOGIN : careParseLastLogin(page);
+	// -1 either way for an astral spirit: careDaysSince() does not match
+	// "astral" against its date shape, so this is belt and braces rather than
+	// a second rule.
 	entry.days = careDaysSince(entry.lastLogin);
 	entry.fetchedAt = now;
 	entry.format = CARE_LOGIN_FORMAT;
@@ -961,6 +1013,7 @@ string CARE_SKIPPED  = "skipped";   // their rank is in careSkipRanks
 string CARE_PENDING  = "pending";   // not looked up yet: no scan has reached them
 string CARE_UNKNOWN  = "unknown";   // looked up, and the profile would not parse
 string CARE_SELF     = "self";      // you
+string CARE_ASTRAL   = "astral";    // in Valhalla, mid-ascension: no last login exists
 
 record care_row {
 	care_member member;
@@ -986,6 +1039,7 @@ string careVerdictLabel(string verdict) {
 	if (verdict == CARE_PENDING)  return "not looked up yet";
 	if (verdict == CARE_UNKNOWN)  return "last login unreadable";
 	if (verdict == CARE_SELF)     return "you";
+	if (verdict == CARE_ASTRAL)   return "in Valhalla";
 	return verdict;
 }
 
@@ -998,6 +1052,13 @@ string careVerdictLabel(string verdict) {
 // you chose, "rank skipped" is a list you typed, "unreadable" and "not looked
 // up yet" are both just missing information -- you may know better than any of
 // them, so they unfold into an empty tick you can set.
+//
+// IN VALHALLA IS ONE OF THOSE, by COwliCK's decision (2026-11-21): "disable
+// send to them but with the checkbox we've added they can be sent to." There
+// is no last login to judge an astral spirit by and no telling how long they
+// have been there, so the page does not pretend to know -- but somebody who
+// just ascended is about as alive as a clan member gets, so the tick is right
+// there to set.
 //
 // The three that stay locked are not opinions. You have already sent to them
 // (ticking it sends a second), KoL has marked the account inactive, or it is
@@ -1074,10 +1135,15 @@ care_row [int] carePlan() {
 			care_login seen = careCachedLogin(m.who);
 			r.lastLogin = seen.lastLogin;
 			r.days = seen.days;
-			if (!seen.looked)             r.verdict = CARE_PENDING;
-			else if (seen.days < 0)       r.verdict = CARE_UNKNOWN;
-			else if (seen.days > window)  r.verdict = CARE_QUIET;
-			else                          r.verdict = CARE_WOULD;
+			// ASTRAL BEFORE UNREADABLE, because both have days = -1 and only
+			// one of them is a failure. An astral spirit's profile came back
+			// exactly as KoL meant to send it; there is simply no last login
+			// on it, which is a different thing from one we could not read.
+			if (!seen.looked)                          r.verdict = CARE_PENDING;
+			else if (seen.lastLogin == CARE_ASTRAL_LOGIN) r.verdict = CARE_ASTRAL;
+			else if (seen.days < 0)                    r.verdict = CARE_UNKNOWN;
+			else if (seen.days > window)               r.verdict = CARE_QUIET;
+			else                                       r.verdict = CARE_WOULD;
 		}
 		rows[count(rows)] = r;
 	}

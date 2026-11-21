@@ -405,6 +405,35 @@ void main() {
 	standInLogins[903].fetchedAt = nowSeconds;
 	standInLogins[903].format = CARE_LOGIN_FORMAT;
 
+	// TWO ROWS THAT BOTH HAVE days = -1 AND MEAN DIFFERENT THINGS. This pair
+	// is what pins the order of carePlan's verdict ladder: somebody in
+	// Valhalla answered, somebody unreadable did not, and a ladder that tests
+	// `days < 0` first calls the astral spirit unreadable and is wrong in a
+	// way no other check here notices.
+	standIn[3].who = 904;
+	standIn[3].name = "In Valhalla";
+	standIn[3].rank = "Member";
+	standIn[3].savedAt = nowSeconds;
+	standIn[3].format = CARE_ROSTER_FORMAT;
+
+	standIn[4].who = 905;
+	standIn[4].name = "Would Not Parse";
+	standIn[4].rank = "Member";
+	standIn[4].savedAt = nowSeconds;
+	standIn[4].format = CARE_ROSTER_FORMAT;
+
+	standInLogins[904].looked = true;
+	standInLogins[904].lastLogin = CARE_ASTRAL_LOGIN;
+	standInLogins[904].days = -1;
+	standInLogins[904].fetchedAt = nowSeconds;
+	standInLogins[904].format = CARE_LOGIN_FORMAT;
+
+	standInLogins[905].looked = true;
+	standInLogins[905].lastLogin = "";
+	standInLogins[905].days = -1;
+	standInLogins[905].fetchedAt = nowSeconds;
+	standInLogins[905].format = CARE_LOGIN_FORMAT;
+
 	int [int] standInSent;
 	standInSent[903] = nowSeconds;
 
@@ -427,6 +456,21 @@ void main() {
 			!(queued contains 901));
 		check("window: and somebody the scan noted as already sent to is skipped",
 			!(queued contains 903));
+		check("window: a looked-up astral row is not queued again",
+			!(queued contains 904));
+
+		// THE VERDICT LADDER, over the same stand-ins. carePlan() reads the
+		// mailbox live, which is two requests and is why this is the only
+		// place it is called here.
+		string [int] verdictOf;
+		foreach i, r in carePlan() verdictOf[r.member.who] = r.verdict;
+
+		checkString("plan: somebody in Valhalla is astral, not unreadable",
+			verdictOf[904], CARE_ASTRAL);
+		checkString("plan: and a profile that would not parse still is",
+			verdictOf[905], CARE_UNKNOWN);
+		checkString("plan: a fresh login inside the window would get one",
+			verdictOf[901], CARE_WOULD);
 	} finally {
 		// Drop the stand-ins so anything after this reads the real files again.
 		careRosterLoaded = false;
@@ -550,6 +594,57 @@ void main() {
 	check("write: a setting the box does not carry is refused by the rule too",
 		careBadValue("arTicketItems", "anything") != "");
 
+	/* ---- somebody in Valhalla ---- */
+
+	// THE BUG THIS IS HERE FOR. An astral spirit's profile has no Account
+	// Created and no Last Login on it -- KoL serves the name, the id, "Level"
+	// and "Astral Spirit", and nothing else. careLooksLikeProfile() correctly
+	// says that is not a profile, and the answer was then never cached, so the
+	// member could never leave the scan queue: the button stuck on "Continue
+	// looking up (1 to go)" for ever and the page blamed KoLmafia for a server
+	// that had answered 200 with exactly what it meant to send. Found against
+	// the live clan, 2026-11-21.
+	string astralPage = "<td valign=center><b>Someone</b> (#1)<br>Level "
+		+ "<img src=\"/images/otherimages/inf_large.gif\"><br>Astral Spirit</td>";
+	string astralReal = "<img src=\"/images/otherimages/spirit.gif\" width=60 "
+		+ "height=100>" + astralPage;
+
+	check("astral: the stub is not a profile", !careLooksLikeProfile(astralReal));
+	check("astral: but it is recognised", careLooksLikeAstral(astralReal));
+
+	// ANCHORED ON KoL'S OWN IMAGE, not on the words. "Astral Spirit" is a
+	// phrase a player can type into their own profile text, and a real profile
+	// matched as astral would lose a last login this page could have read.
+	check("astral: the words alone are not enough", !careLooksLikeAstral(astralPage));
+	check("astral: a real profile is never read as astral",
+		!careLooksLikeAstral(profile));
+	check("astral: and is still read as a profile", careLooksLikeProfile(profile));
+
+	// WHAT careLastLogin ACTUALLY BRANCHES ON. It cannot be called without a
+	// live KoL, so without naming this decision the fix is one careless edit
+	// from being undone with nothing failing: reverting it to
+	// careLooksLikeProfile() alone is exactly the stuck queue again.
+	check("answered: a real profile is an answer", careProfileAnswered(profile));
+	check("answered: so is an astral stub", careProfileAnswered(astralReal));
+	check("answered: an empty page is not", !careProfileAnswered(""));
+	check("answered: and nor is a page that is neither",
+		!careProfileAnswered("<html><body>Nothing here.</body></html>"));
+
+	// Stored in the lastLogin field rather than in a new one, so the held file
+	// keeps its shape and a clan already walked is not thrown away.
+	checkInt("astral: has no number of days to give",
+		careDaysSince(CARE_ASTRAL_LOGIN), -1);
+	checkString("astral: and the word is the one COwliCK asked for",
+		CARE_ASTRAL_LOGIN, "astral");
+
+	// COwliCK, 2026-11-21: "disable send to them but with the checkbox we've
+	// added they can be sent to."
+	check("astral: starts unticked", !careTickedByDefault(CARE_ASTRAL));
+	check("astral: but is yours to tick", careTickable(CARE_ASTRAL));
+	check("astral: and says where they are",
+		careVerdictLabel(CARE_ASTRAL) != CARE_ASTRAL
+		&& careVerdictLabel(CARE_ASTRAL) != "");
+
 	/* ---- who may be ticked, and who starts ticked ---- */
 
 	// The Send column replaced eight verdict headings with one tick per row
@@ -592,6 +687,7 @@ void main() {
 	everyVerdict[5] = CARE_PENDING;
 	everyVerdict[6] = CARE_UNKNOWN;
 	everyVerdict[7] = CARE_SELF;
+	everyVerdict[8] = CARE_ASTRAL;
 	foreach i, verdict in everyVerdict {
 		check("verdict: " + verdict + " has a word that is not its key",
 			careVerdictLabel(verdict) != verdict && careVerdictLabel(verdict) != "");

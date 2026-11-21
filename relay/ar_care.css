@@ -196,7 +196,7 @@ a {
  * the fifty who are not, at a glance and before reading a word of the Send
  * column. */
 .care-had, .care-quiet, .care-inactive, .care-skipped, .care-pending,
-.care-unknown, .care-self {
+.care-unknown, .care-self, .care-astral {
 	color: var(--care-quiet);
 }
 

@@ -132,7 +132,13 @@ get a package. Somebody ruled out by a judgement — not logged in lately, a
 skipped rank, a profile that would not parse, nobody who has looked yet —
 starts unticked but can be ticked anyway, with the reason shown beside the
 box. Somebody who has already had one, an account KoL has marked inactive, and
-you get no box at all: those are not opinions to overrule. The ticks are not
+you get no box at all: those are not opinions to overrule.
+
+**Somebody mid-ascension shows a last login of "astral".** KoL serves an
+astral spirit no profile at all — no account-created date, no last login, just
+the name and "Astral Spirit" — so there is nothing to judge them by and the
+page does not pretend otherwise. They start unticked with *in Valhalla* as the
+reason, and the tick is there if you want to send anyway. The ticks are not
 remembered across a reload, and changing the two Config settings that re-decide
 the table reloads it, so set those first.
 
