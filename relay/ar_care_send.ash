@@ -36,6 +36,7 @@ record care_sent_one {
 	int who;
 	string name;
 	boolean sent;
+	boolean had;     // refused because they already have one, which is not a failure
 	string why;      // empty when it went
 };
 
@@ -103,11 +104,71 @@ boolean [int] careWhoGotOne() {
 	return sent.who;
 }
 
+// WHAT THE PACKAGE IS PACKED FROM, actually done rather than merely counted.
+//
+// THE BUG THIS IS FOR, and it is the worst one this page has had. The Config
+// box says "Gather Items From: Inventory, Closet, Display Case", and
+// careReachable() counts all three -- but KoLmafia's csend attaches from the
+// INVENTORY and nowhere else (SendMessageCommand: getMatchingItemList(itemList,
+// KoLConstants.inventory)). An item in the display case therefore matched
+// nothing, and because the OTHER item in the package did match,
+// attachments.length was not zero and the send went ahead with what it had.
+//
+// COwliCK sent sixty-nine people a package of "1 R'lyeh, 1 11-leaf clover"
+// with 365 R'lyeh in his display case and none in his inventory. Every one of
+// the sixty-nine arrived holding a clover. The session log says so in plain
+// sight -- "send a kmail to <name>: 1 11-leaf clover, 11 Meat" -- and nothing
+// anywhere said a word about the missing half.
+//
+// So the places are gathered from for real: the closet first, because taking
+// from it costs nothing at all, then the display case, which is a request to
+// KoL and is shut in Ronin (arShutBecause). Hagnk's is not a source here and
+// never will be -- a pull costs one of the day's twenty.
+//
+// Enough for the whole batch in one go rather than one recipient at a time:
+// take_display() is a KoL request either way, so three at once is two requests
+// saved and nothing lost.
+void careStock(care_part [int] parts, int people, arLimits limits) {
+	boolean [string] on = careSources();
+	foreach i, p in parts {
+		if (p.what == $item[none]) continue;
+		int want = p.qty * people;
+
+		if (on contains "closet") {
+			int missing = want - item_amount(p.what);
+			int there = closet_amount(p.what);
+			if (missing > 0 && there > 0) {
+				take_closet(missing < there ? missing : there, p.what);
+			}
+		}
+
+		if ((on contains "display") && arShutBecause("display", limits) == "") {
+			int missing = want - item_amount(p.what);
+			int there = display_amount(p.what);
+			if (missing > 0 && there > 0) {
+				take_display(missing < there ? missing : there, p.what);
+			}
+		}
+	}
+}
+
 void main() {
 	if (!arAuthorised()) {
 		arRefuseStale();
 		return;
 	}
+
+	// WHO THE LAST REQUEST DIED ON, read and cleared in one go. See CARE_TRYING
+	// in ar_care.ash: a send KoLmafia will not complete aborts this script
+	// before it writes anything, and KoLmafia serves that as a 404, so this
+	// preference is the only evidence that the failure was about a person
+	// rather than about KoLmafia.
+	//
+	// REPORTED, NOT ACTED ON. The browser counts them, because it is the browser
+	// that holds the queue and the run -- and because nothing about this is
+	// supposed to outlive the run (COwliCK, 2026-11-21: "forget").
+	int died = get_property(CARE_TRYING).to_int();
+	if (died > 0) set_property(CARE_TRYING, "");
 
 	// NOTHING IS SENT WITHOUT ALL THREE, checked here and not only in the
 	// page: the button is disabled without them, and a disabled button is a
@@ -176,14 +237,21 @@ void main() {
 	boolean [int] already = sent.who;
 	int mine = my_id().to_int();
 
+	// WHO IS ACTUALLY BEING SENT TO, decided before anything is fetched or
+	// sent. Two passes rather than one, and the reason is careStock() below:
+	// taking things out of a display case to pack packages that were never
+	// going to be packed is a real cost to somebody's display case. Pressing
+	// Send a second time, where everybody named has already had one, must
+	// touch nothing at all.
 	care_sent_one [int] done;
-	int sentNow = 0;
+	boolean [int] willSend;
 	foreach i, who in asked {
 		if (count(done) >= CARE_SEND_BATCH) break;
 
 		care_sent_one one;
 		one.who = who;
 		one.sent = false;
+		one.had = false;
 
 		if (!(byId contains who)) {
 			one.name = "#" + who;
@@ -196,13 +264,47 @@ void main() {
 				// THE ONE THAT MATTERS. Read fresh from the Outbox at the
 				// start of this request, so a batch cannot send a second
 				// package to somebody an earlier batch already reached.
+				//
+				// SAID AS ITS OWN OUTCOME rather than left for the page to
+				// recognise by its sentence. It is not a failure and the page
+				// must not colour it as one -- which matters most when a batch
+				// is retried after a momentary error, since everybody the first
+				// attempt did reach comes back exactly like this and would
+				// otherwise be reported as refused.
+				one.had = true;
 				one.why = "already had one";
 			} else {
-				cli_execute(careSendCommand(one.name, parts, meat, careBody()));
-				sentNow = sentNow + 1;
+				willSend[count(done)] = true;
 			}
 		}
 		done[count(done)] = one;
+	}
+
+	// EVERYTHING THOSE PACKAGES NEED, OUT OF THE PLACES YOU ALLOW. See
+	// careStock() for the sixty-nine half-empty packages that paid for this.
+	careStock(parts, count(willSend), arLimitsNow());
+
+	int sentNow = 0;
+	foreach i, one in done {
+		if (!(willSend contains i)) continue;
+
+		// NO HALF PACKAGES. csend attaches whatever it can find and sends the
+		// rest regardless, so the only place this can be stopped is here,
+		// before it is asked. Refusing one recipient costs one recipient; the
+		// browser names them and carries on to everybody else.
+		string short = careShortOf(parts);
+		if (short != "") {
+			done[i].why = short;
+			continue;
+		}
+		// SET BEFORE AND CLEARED AFTER, and the gap between them is the whole
+		// mechanism: a send KoLmafia will not complete aborts the script between
+		// these two lines, so the preference is still naming this recipient when
+		// the next request reads it.
+		set_property(CARE_TRYING, one.who + "");
+		cli_execute(careSendCommand(one.name, parts, meat, careBody()));
+		set_property(CARE_TRYING, "");
+		sentNow = sentNow + 1;
 	}
 
 	// ASKED AFTER THE BATCH, not after each send: the Outbox is one request
@@ -227,8 +329,10 @@ void main() {
 		out.append("{\"who\":" + one.who);
 		out.append(",\"name\":" + arQuoted(one.name));
 		out.append(",\"sent\":" + (one.sent ? "true" : "false"));
+		out.append(",\"had\":" + (one.had ? "true" : "false"));
 		out.append(",\"why\":" + arQuoted(one.why) + "}");
 	}
-	out.append("],\"batch\":" + CARE_SEND_BATCH + "}");
+	out.append("],\"batch\":" + CARE_SEND_BATCH);
+	out.append(",\"died\":" + died + "}");
 	out.write();
 }

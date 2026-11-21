@@ -98,6 +98,36 @@ string CARE_HOLD    = "arCareHoldDays";
 string CARE_BATCH   = "arCareScanBatch";
 string CARE_PAUSE   = "arCareScanPause";
 
+// WHO A SEND WAS IN THE MIDDLE OF, and the only thing an aborted request can
+// still say about itself.
+//
+// A clanmate who has you on their ignore list cannot be sent a kmail or a
+// gift, and nothing but a send can find that out: their profile is ordinary,
+// KoL's own compose and gift forms open for them as usual, and ASH has no
+// function that asks. The refusal arrives as an error state, which aborts the
+// relay script before it has written a byte, which KoLmafia serves as a bare
+// 404 -- indistinguishable, from the browser, from KoLmafia having gone away.
+// So the browser did the right thing for an outage and the wrong thing here:
+// narrowed the batch, waited 2s, 10s and 30s, and only then set the person
+// aside. COwliCK, 2026-11-21: "i think it's trying to send to [a clanmate]
+// who has me blocked in game. it's getting very stuck there." The name is
+// redacted here and everywhere below: whose ignore list somebody is on is
+// their business, and this repository is public.
+//
+// This is set immediately before each send and cleared immediately after, so
+// an abort leaves it naming the recipient it died on -- measured rather than
+// assumed: a relay script that sets a preference and then aborts leaves it
+// set, and the statement after the abort does not run. The next request reads
+// it, reports it, and clears it.
+//
+// A CRUMB AND NOT A RECORD. It is cleared the moment it is read, and nothing
+// is written down about anybody: COwliCK's call, asked before it was built,
+// was to forget at the end of a run rather than keep a list of people to stop
+// trying. A list would cost a few seconds a run and quietly stop being true
+// the day somebody took you off their ignore list -- and it could never find
+// that out, since it would never try again.
+string CARE_TRYING  = "arCareTrying";
+
 int CARE_DAYS_FALLBACK = 14;
 
 // HOW LONG A SCAN IS KEPT, and the one thing that distinguishes this page from
@@ -520,6 +550,29 @@ string careBadValue(string name, string value) {
 	}
 
 	return "Not a setting this touches.";
+}
+
+// Whether the inventory can pack one whole package right now.
+//
+// IN THE LIBRARY RATHER THAN THE ENDPOINT, for the same reason careBadValue()
+// is: it is a rule, and a rule reachable only through a running relay is a
+// rule checked by hand or not at all. The gathering that tries to satisfy it
+// (careStock, ar_care_send.ash) stays with the endpoint, because that one
+// takes things out of your closet and is an action rather than a rule.
+//
+// ASKED AGAIN PER RECIPIENT, after careStock() has done what it can, because
+// a package that is short of one of its items must not be sent at all. That
+// is the rule the whole of the comment above exists to establish: an
+// incomplete package is worse than no package, since the person who gets one
+// has had their turn and nothing about them will say otherwise.
+string careShortOf(care_part [int] parts) {
+	foreach i, p in parts {
+		if (p.what == $item[none]) continue;
+		if (item_amount(p.what) < p.qty) {
+			return "not enough " + p.what + " in your inventory";
+		}
+	}
+	return "";
 }
 
 /*****************************************************
@@ -1494,6 +1547,17 @@ care_problem [int] carePackageProblems() {
 		if (held < p.qty) {
 			note("The places you allow hold " + held + " " + p.what
 				+ ", and the package wants " + p.qty + ".", false);
+		} else if (item_amount(p.what) < p.qty) {
+			// WHERE IT IS COMING OUT OF, said before you press the button rather
+			// than discovered afterwards. KoLmafia's csend attaches from the
+			// inventory and nowhere else, so an item in the closet or the display
+			// case has to be taken out first (careStock, ar_care_send.ash) -- and
+			// taking two hundred of something out of a display case is a thing to
+			// know you are about to do. Before this said anything, a package of
+			// "1 R'lyeh, 1 11-leaf clover" went to sixty-nine people as a clover.
+			note("You have no " + p.what + " in your inventory, so each one will be"
+				+ " taken out of your " + (closet_amount(p.what) >= p.qty
+					? "closet" : "display case") + " as it is sent.", false);
 		}
 	}
 

@@ -148,6 +148,219 @@ ok('one is singular', care.careSendLabel(1), 'Send 1 Package');
 // Shown while the button is disabled, so it still has to read as English.
 ok('none is plural', care.careSendLabel(0), 'Send 0 Packages');
 
+/* ---- careSendTally: one batch's answer, counted ---- */
+
+// THREE OUTCOMES AND NOT TWO. "already had one" is a refusal in the sense that
+// nothing was sent, and not a failure in any sense that should be coloured red
+// -- and the retry below makes that the difference between a line that reads
+// as a hiccup and one that reads as a disaster.
+ok('a clean batch',
+	care.careSendTally([{ sent: true }, { sent: true }, { sent: true }]),
+	{ went: 3, had: 0, failed: 0, names: [] });
+
+ok('the three outcomes apart',
+	care.careSendTally([
+		{ sent: true, name: 'A' },
+		{ sent: false, had: true, name: 'B', why: 'already had one' },
+		{ sent: false, had: false, name: 'C', why: 'KoL did not take it' }
+	]),
+	{ went: 1, had: 1, failed: 1, names: ['C (KoL did not take it)'] });
+
+// THE RETRY'S OWN SHAPE: a batch that got two kmails out and then lost
+// KoLmafia comes back, on the second attempt, as two who already have one and
+// one that went. Nothing failed, and the line must not say anything did.
+ok('a retried batch is not a failed one',
+	care.careSendTally([
+		{ sent: false, had: true, name: 'A', why: 'already had one' },
+		{ sent: false, had: true, name: 'B', why: 'already had one' },
+		{ sent: true, name: 'C' }
+	]),
+	{ went: 1, had: 2, failed: 0, names: [] });
+
+ok('nothing at all', care.careSendTally([]), { went: 0, had: 0, failed: 0, names: [] });
+ok('and a missing list', care.careSendTally(undefined),
+	{ went: 0, had: 0, failed: 0, names: [] });
+
+/* ---- careSendLine: what the send says, in each of its five states ---- */
+
+function run(extra) {
+	var t = { went: 0, had: 0, failed: 0, names: [], left: 0, why: '', tries: 0 };
+	for (var k in extra) if (extra.hasOwnProperty(k)) t[k] = extra[k];
+	return t;
+}
+
+ok('mid-send',
+	care.careSendLine(run({ went: 3, left: 187 })).text,
+	'Sent 3, 187 to go');
+
+ok('mid-send with somebody who already had one',
+	care.careSendLine(run({ went: 3, had: 1, left: 186 })).text,
+	'Sent 3, 1 already had one, 186 to go');
+
+ok('mid-send with a refusal named',
+	care.careSendLine(run({ went: 3, failed: 1, names: ['A (KoL did not take it)'], left: 186 })).text,
+	'Sent 3, 1 refused, 186 to go — A (KoL did not take it)');
+
+// A batch that already had one is not an error state, so the line stays busy.
+ok('already-had-one does not colour the line',
+	care.careSendLine(run({ went: 3, had: 2, left: 100 })).kind, 'busy');
+ok('a real refusal does',
+	care.careSendLine(run({ went: 3, failed: 1, names: ['A (x)'], left: 100, phase: 'done' })).kind, 'err');
+
+// THE RETRY, which is the whole of COwliCK's second complaint: "sending stops
+// before all intended packages are sent" is not the expected result, so a
+// momentary failure says what happened, says how long it is waiting, and goes
+// round again.
+ok('a retry says who, how long and which attempt',
+	care.careSendLine(run({ went: 69, left: 61, why: 'KoLmafia did not answer (404).',
+		tries: 2, waitMs: 10000, one: 'Someclanmate', phase: 'retry' })).text,
+	'Sent 69, 61 to go. KoLmafia did not answer (404). Trying Someclanmate on their own in 10s (2 of 4).');
+
+// Without a name to put to it -- a row that has scrolled out of the table,
+// say -- it still has to read as English.
+ok('and without a name',
+	care.careSendLine(run({ went: 69, left: 61, why: 'Boom.', tries: 3,
+		waitMs: 30000, phase: 'retry' })).text,
+	'Sent 69, 61 to go. Boom. Trying again in 30s (3 of 4).');
+
+ok('and a retry is not an error, it is progress',
+	care.careSendLine(run({ went: 15, left: 175, why: 'x', tries: 2, waitMs: 2000,
+		phase: 'retry' })).kind,
+	'busy');
+
+// GIVING UP, which is the only ending that leaves anybody unsent, and says
+// what to do about it rather than where to look.
+ok('giving up names what is left and how to finish it',
+	care.careSendLine(run({ went: 15, left: 175, why: 'KoLmafia did not answer (0).',
+		phase: 'gaveup' })).text,
+	'Sent 15. KoLmafia did not answer (0). 175 not sent — press Send again to finish them.');
+
+ok('the two endings that redraw themselves say so',
+	care.careSendLine(run({ went: 190, phase: 'done' })).text,
+	'Sent 190. Redrawing…');
+ok('and the Stop button',
+	care.careSendLine(run({ went: 15, left: 175, phase: 'stopped' })).text,
+	'Sent 15. Stopped, 175 not sent. Redrawing…');
+
+// THE NAMES BELONG TO THE COUNT, not to the sentence after it. Written the
+// other way round the end of a run with somebody set aside read "Sent 0, 5
+// already had one, 1 refused. - Someclanmate (KoL would not take it) Redrawing...",
+// with a full stop in the middle of its own clause.
+ok('an ending names who was set aside, before its full stop',
+	care.careSendLine(run({ went: 0, had: 5, failed: 1,
+		names: ['Someclanmate (KoL would not take it)'], phase: 'done' })).text,
+	'Sent 0, 5 already had one, 1 refused — Someclanmate (KoL would not take it). Redrawing…');
+ok('and so does a stop',
+	care.careSendLine(run({ went: 3, failed: 1, names: ['A (x)'], left: 9,
+		phase: 'stopped' })).text,
+	'Sent 3, 1 refused — A (x). Stopped, 9 not sent. Redrawing…');
+
+// THE REGRESSION, pinned by name. The old line was "Stopped after 15 sent.
+// Reload to see where it got to." -- printed by an `always` handler written as
+// though it were a failure handler, after batches that had gone perfectly, and
+// printed again at 18 and at 27 because nothing had stopped. Two things were
+// wrong with the sentence itself even when the stop was real: the send already
+// reloads itself at every ending that has anything to redraw, and the loop
+// knows exactly who went, so "see where it got to" was advice to go and find
+// out something it had just been told.
+var everyState = ['busy', 'retry', 'done', 'stopped', 'gaveup'];
+everyState.forEach(function (phase) {
+	var text = care.careSendLine(run({ went: 15, had: 1, failed: 1, names: ['A (x)'],
+		left: 175, why: 'something.', tries: 2, waitMs: 2000, phase: phase })).text;
+	ok('nothing in the ' + phase + ' line asks for a reload',
+		/reload/i.test(text), false);
+	ok('and nothing in the ' + phase + ' line claims it stopped after a count',
+		/stopped after/i.test(text), false);
+});
+
+/* ---- careSendAfterFailure: what a 404 costs ---- */
+
+// THE BUG THIS IS THE FIX FOR, and it is worth stating exactly because the
+// shape of it is not obvious. A send KoLmafia will not complete sets an error
+// state; an error state aborts the ASH relay script; ar_care_send.ash writes
+// its whole answer at the end, so nothing has been written; and KoLmafia
+// serves a script that wrote nothing as HTTP 404. So ONE recipient KoL will
+// not take produces a 404 that says nothing about who, and the first version
+// of the retry answered it by asking for the same three people three times
+// and then stopping -- "Sent 69. KoLmafia did not answer (404). 61 not sent."
+//
+// A FAILURE IS NARROWED BEFORE IT IS JUDGED: first to one recipient, then
+// over growing waits, and only then is that recipient set aside.
+ok('a failed batch is narrowed to its head',
+	care.careSendAfterFailure(3, 1, 0), { act: 'isolate', waitMs: 2000 });
+ok('however big it was',
+	care.careSendAfterFailure(2, 1, 0).act, 'isolate');
+
+// And then the same person, over waits that grow: two seconds only ever rode
+// out a stutter, and the thing that fixes a KoL that has had too much through
+// it in the last minute is a pause.
+ok('then the same one again, after ten seconds',
+	care.careSendAfterFailure(1, 2, 0), { act: 'again', waitMs: 10000 });
+ok('and after thirty',
+	care.careSendAfterFailure(1, 3, 0), { act: 'again', waitMs: 30000 });
+
+// FOUR GOES AND THEN PAST THEM. This is the line that matters: the run
+// carries on, which is the whole of COwliCK's requirement that sending must
+// not "stop before all intended packages are sent".
+ok('and then that one is set aside, not the run',
+	care.careSendAfterFailure(1, 4, 0), { act: 'skip', waitMs: 0 });
+ok('and a fifth attempt would be too, if it got there',
+	care.careSendAfterFailure(1, 9, 0).act, 'skip');
+
+// Set aside with others already set aside is still just a skip, until it is
+// so many in a row that the recipients cannot be what they have in common.
+ok('a second awkward clanmate is still only a skip',
+	care.careSendAfterFailure(1, 4, 1).act, 'skip');
+ok('and a third',
+	care.careSendAfterFailure(1, 4, 2).act, 'skip');
+ok('and a fourth',
+	care.careSendAfterFailure(1, 4, 3).act, 'skip');
+ok('the fifth in a row is not about the recipients any more',
+	care.careSendAfterFailure(1, 4, 4), { act: 'stop', waitMs: 0 });
+
+// A SKIP RESETS THE COUNT in the loop, so this only ever fires on five
+// consecutive ones -- five scattered through two hundred recipients must not
+// add up to a stop.
+ok('a run of skips is what counts, and the loop clears it on any answer',
+	care.careSendAfterFailure(1, 4, 0).act, 'skip');
+
+// Narrowing never stops, whatever has gone before: a batch of three has not
+// yet told anybody which of the three is the trouble, so it cannot be the
+// evidence that there is no point carrying on.
+ok('a batch is narrowed even when the run of skips is long',
+	care.careSendAfterFailure(3, 1, 4).act, 'isolate');
+
+/* ---- careSendGiveUpOn: a recipient KoL will not take at all ---- */
+
+// A clanmate who has you on their ignore list cannot be sent a kmail or a
+// gift, and nothing but a send can find that out. The send that finds it out
+// aborts the endpoint and comes back as a 404, so without this the whole of
+// careSendAfterFailure's narrowing and backing off is spent relearning it --
+// three quarters of a minute, every run, for somebody who cannot be sent to.
+//
+// TWO AND NOT ONE, because a request can die for reasons that have nothing to
+// do with whoever it happened to be sending to at the time.
+var strikes = {};
+ok('one failure is not enough to write somebody off',
+	care.careSendGiveUpOn(strikes, 7000001), false);
+ok('the second is', care.careSendGiveUpOn(strikes, 7000001), true);
+
+// Counted per recipient, since the whole point is telling one unsendable
+// clanmate apart from a bad minute.
+var two = {};
+care.careSendGiveUpOn(two, 111);
+ok('somebody else starts from nothing', care.careSendGiveUpOn(two, 222), false);
+ok('and their own second one counts', care.careSendGiveUpOn(two, 222), true);
+ok('without disturbing the first', two[111], 1);
+
+// AND ONLY FOR THE RUN. The tally is handed in rather than kept here, so a
+// new run starts with a fresh one and tries everybody who is ticked --
+// COwliCK's call, 2026-11-21: "forget", and "attempt the send to anybody who
+// is ticked". A kept list would quietly stop being true the day somebody took
+// him off their ignore list, and could never find out, having stopped trying.
+ok('a fresh run has no memory of them',
+	care.careSendGiveUpOn({}, 7000001), false);
+
 if (failures > 0) {
 	console.log(failures + ' failure(s)');
 	process.exit(1);

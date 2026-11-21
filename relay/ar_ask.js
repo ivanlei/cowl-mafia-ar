@@ -27,6 +27,23 @@
 // Packages page has a line under its buttons. So each page hands in its own
 // say(text, kind) and its own password hash, and gets back an ask() that
 // reports through it.
+//
+// `always(ok, why)` IS TOLD WHICH PATH IT IS ON, and that argument is not a
+// convenience. ask() takes `then` for the answer and `always` for every path
+// including the answer -- which reads, at the call site, exactly like a
+// success callback and a failure callback, and is not. Every caller that
+// wanted "only when it failed" therefore had to set a flag inside `then` and
+// check it in `always`, four times over, and the fourth one forgot: the Care
+// Packages send printed "Stopped after 15 sent" after a batch that had just
+// gone perfectly, cleared `sending` mid-send, and did it again at 18 and at
+// 27 because `then` had already queued the next batch. COwliCK found it while
+// sending for real.
+//
+// So the fact those four flags were all reconstructing is passed instead: ok
+// is false exactly on the paths that did not reach `then`, and why is the
+// sentence this file put on the line, so a caller can say "that batch again"
+// without inventing its own wording or reading it back out of the DOM.
+// Ignoring both arguments still behaves as it always did.
 
 (function () {
 	'use strict';
@@ -50,15 +67,19 @@
 
 				// `always` runs down every path, so a caller that disabled a
 				// button can put it back whether the answer was yes, no or
-				// nothing at all.
+				// nothing at all -- and is handed the one thing it cannot see
+				// from there: whether `then` ran, and what was said instead.
+				var why;
 				if (xhr.status === 401) {
-					say('This page is out of date. Reload it.', 'err');
-					if (always) always();
+					why = 'This page is out of date. Reload it.';
+					say(why, 'err');
+					if (always) always(false, why);
 					return;
 				}
 				if (xhr.status !== 200) {
-					say('KoLmafia did not answer (' + xhr.status + ').', 'err');
-					if (always) always();
+					why = 'KoLmafia did not answer (' + xhr.status + ').';
+					say(why, 'err');
+					if (always) always(false, why);
 					return;
 				}
 
@@ -66,17 +87,19 @@
 				try {
 					answer = JSON.parse(xhr.responseText);
 				} catch (e) {
-					say('KoLmafia answered with something that is not an answer.', 'err');
-					if (always) always();
+					why = 'KoLmafia answered with something that is not an answer.';
+					say(why, 'err');
+					if (always) always(false, why);
 					return;
 				}
 				if (!answer.ok) {
-					say(answer.error || 'Refused.', 'err');
-					if (always) always();
+					why = answer.error || 'Refused.';
+					say(why, 'err');
+					if (always) always(false, why);
 					return;
 				}
 				then(answer);
-				if (always) always();
+				if (always) always(true, '');
 			};
 			xhr.send(form);
 		};

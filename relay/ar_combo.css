@@ -79,3 +79,16 @@
 	font-style: italic;
 	padding: 5px 8px;
 }
+
+/* HELD, AND STILL NOT SENDABLE: an Epic weapon, a quest item, an old
+ * untradeable trophy. These are in the list so that typing the name of
+ * something you own is answered rather than denied -- "Nothing you hold
+ * matches" was printed over 262 of COwliCK's display case -- and they are
+ * drawn as explanations rather than offers: quiet, in italics like the
+ * .ar-combo-none line they replaced, with the default cursor, and no hover,
+ * because ar_combo.js gives them neither the mouse nor the arrow keys. */
+.ar-combo-cannot {
+	color: var(--ar-combo-quiet);
+	cursor: default;
+	font-style: italic;
+}

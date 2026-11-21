@@ -80,6 +80,57 @@ ok('the empty case hands back a copy', HELD.length, 6);
 ok('no match is an empty list, not everything',
 	names(combo.matches(HELD, 'zzzz')), []);
 
+/* ---- pickable, and what cannot be sent ---- */
+
+// WHAT THIS IS FOR. The item list used to leave out anything that could not
+// be gifted, so typing the name of something held came back as "Nothing you
+// hold matches" -- which is false, and on this character it is false for 262
+// of the display case and 279 of the inventory. COwliCK, 2026-11-21: "the
+// combo to select items to send doesn't seem to like what's in closet or DC."
+// They are rows now, marked, and the only thing they will not do is be
+// picked.
+var MIXED = [
+	{ name: 'Epic Weapon', have: 1, gift: false },
+	{ name: '11-leaf clover', have: 231, gift: true },
+	{ name: 'quest clover of some kind', have: 1, gift: false },
+	{ name: 'disassembled clover', have: 2, gift: true }
+];
+
+// A ROW WITH NO FLAG IS PICKABLE, which is what keeps this safe for the
+// Anti-Raffle's ticket box: it sends no `gift` at all and every row of it is
+// an offer.
+ok('no flag means pickable', combo.pickable({ name: 'x' }), true);
+ok('true means pickable', combo.pickable({ name: 'x', gift: true }), true);
+ok('only false is not', combo.pickable({ name: 'x', gift: false }), false);
+
+// SENDABLE FIRST, AND THAT IS NOT COSMETIC. The list is cut to SHOWN, so an
+// unsendable row does not merely clutter -- it can push the item you were
+// looking for off the bottom and out of sight.
+ok('the sendable ones come first',
+	names(combo.matches(MIXED, 'clover')),
+	['11-leaf clover', 'disassembled clover', 'quest clover of some kind']);
+
+ok('and with nothing typed, too',
+	names(combo.matches(MIXED, '')),
+	['11-leaf clover', 'disassembled clover', 'Epic Weapon', 'quest clover of some kind']);
+
+// Both groups keep the order they arrived in, so this is a partition and not
+// a sort: the server decides what order items are offered in.
+ok('each group keeps the order it came in',
+	names(combo.matches([
+		{ name: 'b', gift: true }, { name: 'z', gift: false },
+		{ name: 'a', gift: true }, { name: 'y', gift: false }
+	], '')),
+	['b', 'a', 'z', 'y']);
+
+// AND THEY ARE STILL FOUND. The point of listing them is that a name you own
+// gets an answer, so a search that matches only unsendable things must come
+// back with them rather than with nothing.
+ok('something held but unsendable is still a match',
+	names(combo.matches(MIXED, 'epic')), ['Epic Weapon']);
+ok('and is not mistaken for nothing',
+	combo.matches(MIXED, 'epic').length > 0, true);
+
 if (failures > 0) {
 	console.log(failures + ' failure(s)');
 	process.exit(1);
