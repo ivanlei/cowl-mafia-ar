@@ -121,6 +121,21 @@ would cost somebody a second package.
 **It does not send anything yet.** Not as a promise: there is no send endpoint
 in the repository and no form on the page. That half comes later.
 
+**The page is two KoL section boxes**, Config and Clan Members, which fold
+when you tap the bar. Three of the Config rows are controls and save
+themselves as you change them: how recently counts as active, which places a
+package may be packed from, and the note that goes with one. The other two
+rows are a readout, and are still set from the gCLI.
+
+**Each clan member has a Send tick.** It starts ticked for everyone who would
+get a package. Somebody ruled out by a judgement — not logged in lately, a
+skipped rank, a profile that would not parse, nobody who has looked yet —
+starts unticked but can be ticked anyway, with the reason shown beside the
+box. Somebody who has already had one, an account KoL has marked inactive, and
+you get no box at all: those are not opinions to overrule. The ticks are not
+remembered across a reload, and changing the two Config settings that re-decide
+the table reloads it, so set those first.
+
 Open it from the relay browser's Scripts menu, as "Care Packages".
 
 | Preference | Default | |
@@ -128,7 +143,7 @@ Open it from the relay browser's Scripts menu, as "Care Packages".
 | `arCareDays` | `14` | logged in this recently counts as active |
 | `arCarePackage` | empty | what is in one, in KoLmafia's item-list syntax |
 | `arCareMeat` | `0` | Meat to include as well |
-| `arCareSources` | `inventory,closet,display,storage` | where a package may be packed from |
+| `arCareSources` | `inventory,closet,display` | where a package may be packed from |
 | `arCareNote` | a short default | the message that goes with one |
 | `arCareSkipRanks` | empty | clan ranks not to send to |
 | `arCareHoldDays` | `7` | how long a look-up's roster and last logins are kept |
@@ -137,6 +152,12 @@ Open it from the relay browser's Scripts menu, as "Care Packages".
 
 The last two are there so you can be gentler on KoL's server than this ships,
 without editing a script; `0` for the pause means as fast as it answers.
+
+**Hagnk's storage is not a place a package can be packed from**, and the page
+will refuse it rather than accept it and ignore it. A pull out of storage costs
+one of the twenty a day Ronin allows, which is worth more than a present. (The
+anti-raffle still restocks from storage: that is a different trade, which is
+why the two have had separate source settings all along.)
 
 With `arCarePackage` unset the page offers nothing to press and says so — a
 tool that gives your items away to a hundred people should not arrive with an

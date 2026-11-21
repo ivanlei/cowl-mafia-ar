@@ -435,6 +435,168 @@ void main() {
 		careSentScratchLoaded = false;
 	}
 
+	/* ---- writing somebody else's words into a page ---- */
+
+	// None of this was escaped until 2026-11-21. A clan rank is typed by
+	// whoever runs the clan and the note is now a text box on the page, so
+	// three of the strings this page draws come from outside it.
+	checkString("escape: an ampersand", careHtml("Skills & Crap"), "Skills &amp; Crap");
+	checkString("escape: a tag", careHtml("<b>x</b>"), "&lt;b&gt;x&lt;/b&gt;");
+	checkString("escape: a double quote", careHtml("say \"hi\""), "say &quot;hi&quot;");
+
+	// THE ONE entity_encode LEAVES ALONE, checked here because it is the
+	// whole reason careAttr exists. CharacterEntities' table runs &quot;
+	// &amp; &lt; &gt; and no &apos;.
+	checkString("escape: an apostrophe is left alone", careHtml("it's"), "it's");
+
+	// So an attribute value has to be DOUBLE quoted, and careAttr supplies the
+	// quotes rather than trusting the caller to type the right ones. The fault
+	// this is here to catch is single quotes: value='it's a gift' ends the
+	// attribute at the apostrophe and renders the rest of the tag as text --
+	// which works perfectly until somebody writes a note with an apostrophe in
+	// it, and this page's default note has one.
+	checkString("attr: double quoted, so an apostrophe inside is safe",
+		careAttr("it's"), "\"it's\"");
+	checkString("attr: and a double quote inside is encoded",
+		careAttr("say \"hi\""), "\"say &quot;hi&quot;\"");
+	check("attr: the default note survives a round trip",
+		careAttr(CARE_NOTE_DEFAULT) == "\"" + CARE_NOTE_DEFAULT + "\"");
+
+	/* ---- the three places, and the one that is not a place ---- */
+
+	checkInt("places: three, not the anti-raffle's four",
+		count(careAllSources()), 3);
+	check("places: storage is not one of them", !careIsSource("storage"));
+	check("places: inventory is", careIsSource("inventory"));
+
+	// A place added without being named would get a checkbox labelled with
+	// its internal key.
+	foreach i, place in careAllSources() {
+		check("places: " + place + " has a name of its own",
+			careSourceName(place) != place && careSourceName(place) != "");
+	}
+	checkString("places: an unknown one is its own name",
+		careSourceName("attic"), "attic");
+
+	string savedSources = get_property(CARE_SOURCES);
+
+	set_property(CARE_SOURCES, "");
+	checkInt("places: unset means all three", count(careSources()), 3);
+
+	// THE MIGRATION CASE. Storage was a source until 2026-11-21, so a
+	// preference saved before then names four. It has to read as the three it
+	// still has rather than refuse, since a page cannot show a checkbox for a
+	// place that no longer exists and refusing would strand whoever has one.
+	set_property(CARE_SOURCES, "inventory,closet,display,storage");
+	boolean [string] places = careSources();
+	checkInt("places: a saved value naming storage reads as three",
+		count(places), 3);
+	check("places: and storage is not among them", !(places contains "storage"));
+
+	set_property(CARE_SOURCES, savedSources);
+	checkString("places: the setting was put back",
+		get_property(CARE_SOURCES), savedSources);
+
+	/* ---- what the Config box may write ---- */
+
+	boolean [string] settable = careSettable();
+	checkInt("settable: three settings and no more", count(settable), 3);
+	check("settable: the days", settable contains CARE_DAYS);
+	check("settable: the places", settable contains CARE_SOURCES);
+	check("settable: the note", settable contains CARE_NOTE);
+	// Read-only on the page by COwliCK's decision, 2026-11-21: an item list
+	// wants parsing against real item names and that is its own job.
+	check("settable: and NOT the package", !(settable contains CARE_PACKAGE));
+	check("settable: nor the skipped ranks", !(settable contains CARE_SKIP));
+
+	checkString("days: a number is fine", careBadValue(CARE_DAYS, "14"), "");
+	check("days: zero is not", careBadValue(CARE_DAYS, "0") != "");
+	check("days: a negative number is not", careBadValue(CARE_DAYS, "-3") != "");
+	check("days: a word is not", careBadValue(CARE_DAYS, "soon") != "");
+	check("days: nothing at all is not", careBadValue(CARE_DAYS, "") != "");
+
+	checkString("write places: the three together are fine",
+		careBadValue(CARE_SOURCES, "inventory,closet,display"), "");
+	checkString("write places: one of them is fine",
+		careBadValue(CARE_SOURCES, "closet"), "");
+	check("write places: none at all is refused",
+		careBadValue(CARE_SOURCES, "") != "");
+	check("write places: an unknown one is refused",
+		careBadValue(CARE_SOURCES, "attic") != "");
+
+	// REFUSED BY NAME, not as an unknown. Storage is the one wrong answer
+	// somebody has a reason to try -- it was a source here until 2026-11-21
+	// and still is one for the anti-raffle -- so "not a place this knows"
+	// would read as a bug rather than as a decision.
+	check("write places: storage is refused",
+		careBadValue(CARE_SOURCES, "storage") != "");
+	check("write places: storage beside a real one is still refused",
+		careBadValue(CARE_SOURCES, "inventory,storage") != "");
+	check("write places: and refused in its own words",
+		careBadValue(CARE_SOURCES, "storage") != careBadValue(CARE_SOURCES, "attic"));
+
+	checkString("note: ordinary text is fine",
+		careBadValue(CARE_NOTE, "Have a good run!"), "");
+	// Empty is ALLOWED and means the default sentence back, which is how
+	// careNote() already reads an unset preference. Clearing the box is how
+	// you get the default, rather than being told to type something.
+	checkString("note: empty is allowed", careBadValue(CARE_NOTE, ""), "");
+
+	buffer tooLong;
+	while (tooLong.length() <= CARE_NOTE_MAX) tooLong.append("abcdefghij");
+	check("note: one past the cap is refused",
+		careBadValue(CARE_NOTE, tooLong.to_string()) != "");
+
+	check("write: a setting the box does not carry is refused by the rule too",
+		careBadValue("arTicketItems", "anything") != "");
+
+	/* ---- who may be ticked, and who starts ticked ---- */
+
+	// The Send column replaced eight verdict headings with one tick per row
+	// (COwliCK, 2026-11-21), so these two predicates are the whole of what
+	// that column means.
+	check("tick: the eligible are tickable", careTickable(CARE_WOULD));
+	check("tick: and start ticked", careTickedByDefault(CARE_WOULD));
+
+	// YOURS TO OVERRULE: every one of these four is this page's own opinion or
+	// a gap in what it knows, and you may know better.
+	check("tick: not logged in lately is yours to tick", careTickable(CARE_QUIET));
+	check("tick: a skipped rank is yours to tick", careTickable(CARE_SKIPPED));
+	check("tick: an unreadable profile is yours to tick", careTickable(CARE_UNKNOWN));
+	check("tick: one not looked up yet is yours to tick", careTickable(CARE_PENDING));
+	check("tick: none of the four starts ticked",
+		!careTickedByDefault(CARE_QUIET) && !careTickedByDefault(CARE_SKIPPED)
+		&& !careTickedByDefault(CARE_UNKNOWN) && !careTickedByDefault(CARE_PENDING));
+
+	// NOT OPINIONS, so no box is drawn at all. Ticking "already had one" is a
+	// second package to somebody who has had theirs, which is the exact
+	// mistake this whole page exists to prevent.
+	check("tick: already had one is locked off", !careTickable(CARE_HAD));
+	check("tick: an inactive account is locked off", !careTickable(CARE_INACTIVE));
+	check("tick: and you are locked off", !careTickable(CARE_SELF));
+	check("tick: nothing locked starts ticked",
+		!careTickedByDefault(CARE_HAD) && !careTickedByDefault(CARE_INACTIVE)
+		&& !careTickedByDefault(CARE_SELF));
+
+	/* ---- every verdict has a word for itself ---- */
+
+	// With the headings gone these eight words are the only thing saying why a
+	// row has no tick, so a verdict nobody gave a word to would print its own
+	// bare key into the Send column.
+	string [int] everyVerdict;
+	everyVerdict[0] = CARE_WOULD;
+	everyVerdict[1] = CARE_HAD;
+	everyVerdict[2] = CARE_QUIET;
+	everyVerdict[3] = CARE_INACTIVE;
+	everyVerdict[4] = CARE_SKIPPED;
+	everyVerdict[5] = CARE_PENDING;
+	everyVerdict[6] = CARE_UNKNOWN;
+	everyVerdict[7] = CARE_SELF;
+	foreach i, verdict in everyVerdict {
+		check("verdict: " + verdict + " has a word that is not its key",
+			careVerdictLabel(verdict) != verdict && careVerdictLabel(verdict) != "");
+	}
+
 	/* ---- the package's own problems ---- */
 
 	// With nothing configured the page must refuse, and it must be a fatal

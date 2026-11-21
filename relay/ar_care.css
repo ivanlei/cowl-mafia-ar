@@ -47,20 +47,86 @@ a {
 	color: var(--care-link);
 }
 
-/* What is configured, as a label/value pair per row. */
+/* What is configured, as a label/value pair per row. Three of the five rows
+ * carry a control now, so the rows are taller than a row of text wants: an
+ * input and its label share a baseline only with the middle alignment, and
+ * 26px of control is about the smallest an iPad thumb finds reliably. */
 .care-setup {
 	border-collapse: collapse;
-	margin-bottom: 12px;
+	margin-bottom: 4px;
 }
 
 .care-setup td {
-	padding: 2px 12px 2px 0;
-	vertical-align: top;
+	padding: 3px 12px 3px 0;
+	vertical-align: middle;
 }
 
 .care-label {
 	color: var(--care-quiet);
 	white-space: nowrap;
+}
+
+/* The Config box's own controls.
+ *
+ * SIZED, NOT STRETCHED. A box wide enough for three digits and a box that
+ * takes the width it is given: the note is a sentence and the days are two
+ * digits, and two equally wide boxes would say they hold the same kind of
+ * thing. */
+.care-number,
+.care-text {
+	background: var(--care-page);
+	border: 1px solid var(--care-rule);
+	border-radius: 3px;
+	color: var(--care-ink);
+	font: inherit;
+	min-height: 26px;
+	padding: 2px 6px;
+}
+
+.care-number {
+	width: 4.5em;
+}
+
+.care-text {
+	max-width: 32em;
+	width: 100%;
+}
+
+/* The places. Wrapping on purpose -- three fit on one line in a wide pane and
+ * go to two in a narrow one -- and the word is part of the target, so the
+ * whole label is tappable rather than the 13px box beside it. */
+.care-places {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 14px;
+}
+
+.care-places label {
+	align-items: center;
+	cursor: pointer;
+	display: inline-flex;
+	gap: 5px;
+	min-height: 26px;
+}
+
+/* WHAT A CONTROL JUST SAID, under the box it belongs to -- there are two of
+ * these now, one per box, because a refusal caused by a checkbox in Config
+ * and printed beside the look-up button half a page away reads as an
+ * unrelated failure. A min-height, so the page does not jump by a line every
+ * time one appears and goes. */
+.care-said {
+	display: block;
+	min-height: 1.3em;
+}
+
+.care-said.err {
+	color: var(--care-warn);
+	font-weight: bold;
+}
+
+.care-said.done,
+.care-said.busy {
+	color: var(--care-quiet);
 }
 
 /* Anything wrong with the package. A fatal one is why there is no send button,
@@ -119,23 +185,22 @@ a {
 	border-bottom: 1px solid var(--care-rule);
 }
 
-.care-section td {
-	padding-top: 14px;
-	border-bottom: 1px solid var(--care-rule);
-}
-
 /* The one group that is the point of the page. */
 .care-would .care-who {
 	font-weight: bold;
 }
 
-/* The groups that are context rather than the answer. */
+/* The rows that are context rather than the answer. There are no section
+ * headings any more -- one table, a tick per row -- so this greying is now
+ * the only thing separating the hundred and ninety who are getting one from
+ * the fifty who are not, at a glance and before reading a word of the Send
+ * column. */
 .care-had, .care-quiet, .care-inactive, .care-skipped, .care-pending,
 .care-unknown, .care-self {
 	color: var(--care-quiet);
 }
 
-.care-rank, .care-seen, .care-verdict {
+.care-rank, .care-seen {
 	white-space: nowrap;
 }
 
@@ -143,18 +208,54 @@ a {
 	color: var(--care-quiet);
 }
 
-/* A phone-width pane: the rank is the first thing worth losing, then the
- * repeated verdict, which the section heading above already said. */
+/* The Send cell: a tick, or a tick and a reason, or a reason alone. */
+.care-send {
+	white-space: nowrap;
+}
+
+.care-send input {
+	cursor: pointer;
+	/* A 13px box is not a tap target. KoL's own pages get away with it because
+	 * they are read, not operated; this one has two hundred of them. */
+	height: 15px;
+	margin: 0;
+	vertical-align: middle;
+	width: 15px;
+}
+
+/* WHY THIS ROW IS NOT TICKED, in the place the tick would be. These eight
+ * words were eight section headings until the table went flat, and they carry
+ * the whole of what was lost with them. */
+.care-why {
+	color: var(--care-quiet);
+	margin-left: 6px;
+}
+
+/* No box to sit beside, so no gap to leave for one. */
+.care-had .care-why, .care-inactive .care-why, .care-self .care-why {
+	margin-left: 0;
+}
+
+/* How many are ticked, written by ar_care.js. Tabular figures so a count
+ * climbing past a digit does not shuffle the words after it sideways. */
+.care-ticked {
+	font-variant-numeric: tabular-nums;
+	margin: 14px 0 4px;
+}
+
+/* A phone-width pane: the rank is the first thing worth losing. The Send
+ * column is not -- it is the point of the table -- and neither is the reason
+ * in it, which is the only remaining explanation of an empty box. */
 @media (max-width: 560px) {
 	#care {
 		padding: 8px 10px 22px;
 	}
 
-	.care-rank, .care-verdict {
+	.care-rank {
 		display: none;
 	}
 
-	.care-seen {
+	.care-seen, .care-send {
 		white-space: normal;
 	}
 }
@@ -201,8 +302,13 @@ a {
 	font-variant-numeric: tabular-nums;
 }
 
-.care-note-line:not(:empty) {
-	color: var(--care-warn);
+/* The scan's own said-line sits inline beside the button rather than under
+ * it, which is the one place .care-said's block layout is wrong: a line that
+ * takes a row of its own would push the whole table down and back up as a
+ * scan starts and stops. */
+.care-scan .care-said {
+	display: inline;
+	min-height: 0;
 }
 
 /* How old what is held is, said next to the conclusions drawn from it. */

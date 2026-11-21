@@ -38,6 +38,43 @@
 import <ar_core.ash>
 
 /*****************************************************
+	Writing somebody else's words into a page
+*****************************************************/
+
+// EVERY STRING THIS PAGE DRAWS THAT IT DID NOT WRITE ITSELF goes through one
+// of these two. There are three sources of such a string and all three are
+// outside our control: a player's name and their clan rank, both typed by
+// whoever runs the clan, and the package note, which is now a text box on the
+// page rather than a preference only the gCLI could reach.
+//
+// None of it was escaped before (2026-11-21). A rank called "Skills & Crap"
+// has always rendered wrong; what made it worth fixing rather than noting is
+// the note becoming editable, because the page round-trips it back into an
+// <input value=...> and a quote in it would end the attribute early.
+//
+// entity_encode() is KoLmafia's own (CharacterEntities.escape). It encodes
+// " & < > and every non-ASCII character, and leaves the rest of ASCII alone.
+//
+// IT DOES NOT ENCODE THE APOSTROPHE -- checked in CharacterEntities.java
+// rather than assumed, where the table runs &quot; &amp; &lt; &gt; and no
+// &apos;. This page quotes its attributes with single quotes nearly
+// everywhere, so "it's a gift" in the note would break out of a single-quoted
+// value and leave the rest of the tag as text. Hence careAttr(), which
+// supplies DOUBLE quotes around a value and is the only way an untrusted
+// string should ever reach an attribute here.
+string careHtml(string text) {
+	return entity_encode(text);
+}
+
+// The whole attribute value, quotes included: write `value=` + careAttr(s),
+// never `value='` + something + `'`. Returning the quotes rather than trusting
+// the caller to type the right ones is the point -- it is the half of this
+// that cannot be got wrong by habit.
+string careAttr(string value) {
+	return "\"" + entity_encode(value) + "\"";
+}
+
+/*****************************************************
 	Preferences
 *****************************************************/
 
@@ -46,10 +83,12 @@ import <ar_core.ash>
 // with every script installed, the same way relay/ and scripts/ are, and so is
 // the data/ folder the cache below sits in.
 //
-// Set them with KoLmafia's `set`, or from Preferences in the Swing client.
-// Nothing here writes a preference -- the page only reads -- so there is no
-// settings endpoint to allowlist them in, the way ar_prefs.ash does for the
-// three the anti-raffle page can change.
+// Set them with KoLmafia's `set`, or from Preferences in the Swing client --
+// or, for the three the Config box carries a control for, from the page
+// itself. ar_care_prefs.ash is the endpoint that writes those three and
+// refuses everything else, the way ar_prefs.ash does for the anti-raffle's;
+// careBadValue() below is the rule it refuses by, kept here rather than in the
+// endpoint so that a test can reach it without a running relay.
 string CARE_DAYS    = "arCareDays";
 string CARE_PACKAGE = "arCarePackage";
 string CARE_MEAT    = "arCareMeat";
@@ -138,25 +177,67 @@ int careMeat() {
 	return n > 0 ? n : 0;
 }
 
-// Where a package may be packed from, as a set of this repository's own source
-// names (ar_core.ash: inventory, closet, display, storage). Unset means all of
-// them, which is what the anti-raffle's AR_SOURCES_DEFAULT means too.
+// THREE PLACES, NOT THE ANTI-RAFFLE'S FOUR: Hagnk's storage is not a source a
+// care package may be packed from at all. COwliCK's call, 2026-11-21, asked
+// before anything was built on it.
 //
-// ITS OWN PREFERENCE RATHER THAN arSources, although the names and the
-// validation are shared. Giving a hundred people a package and keeping a
-// store stocked are different decisions -- storage is a Ronin pull each, and
-// you might well spend those on one and not the other -- so they share the
-// code and not the setting.
+// A pull out of storage costs one of the twenty a day Ronin allows, and those
+// are worth more than a present. The anti-raffle keeps storage because
+// restocking a store is a different trade -- which is the same reasoning that
+// gave care packages their own preference in the first place, now followed
+// through to its end: this does not merely default storage off, it refuses to
+// accept it (ar_care_prefs.ash), so a hand-written preference cannot put back
+// a source the page does not show.
+string [int] careAllSources() {
+	string [int] places;
+	places[0] = "inventory";
+	places[1] = "closet";
+	places[2] = "display";
+	return places;
+}
+
+boolean careIsSource(string place) {
+	foreach i, known in careAllSources() {
+		if (known == place) return true;
+	}
+	return false;
+}
+
+// KoL's own name for a place, for the Config box's checkboxes. The keys are
+// this repository's internal words and two of the three happen to read as
+// English; "display" does not, and "Display Case" is what the game calls it.
+//
+// Beside careAllSources() so that adding a place and naming it are one edit,
+// and pinned by a test so that adding one and NOT naming it is a failure
+// rather than a checkbox labelled with a lowercase key.
+string careSourceName(string place) {
+	if (place == "inventory") return "Inventory";
+	if (place == "closet")    return "Closet";
+	if (place == "display")   return "Display Case";
+	return place;
+}
+
+// All three, since none of the three costs anything.
+string CARE_SOURCES_DEFAULT = "inventory,closet,display";
+
+// Where a package may be packed from, as a set of this repository's own source
+// names. Unset means all three.
+//
+// AN UNKNOWN PIECE IS DROPPED RATHER THAN REFUSED, which is what makes the
+// narrowing above safe to land on a preference somebody already has: a saved
+// "inventory,closet,display,storage" reads as the three, rather than as an
+// error on a page that cannot show one. The endpoint is where a value being
+// written now is refused.
 boolean [string] careSources() {
 	boolean [string] on;
 	string raw = get_property(CARE_SOURCES);
-	if (raw == "") raw = AR_SOURCES_DEFAULT;
+	if (raw == "") raw = CARE_SOURCES_DEFAULT;
 
 	foreach i, piece in raw.split_string(",") {
 		string place = piece;
 		while (place.starts_with(" ")) place = place.substring(1, place.length());
 		while (place.ends_with(" ")) place = place.substring(0, place.length() - 1);
-		if (arIsSource(place)) on[place] = true;
+		if (careIsSource(place)) on[place] = true;
 	}
 	return on;
 }
@@ -168,7 +249,7 @@ boolean [string] careSources() {
 int careReachable(item it, arLimits l) {
 	boolean [string] on = careSources();
 	int total = 0;
-	foreach i, place in arAllSources() {
+	foreach i, place in careAllSources() {
 		if (!(on contains place)) continue;
 		if (arShutBecause(place, l) != "") continue;
 		total = total + arAvailable(it, place);
@@ -176,9 +257,11 @@ int careReachable(item it, arLimits l) {
 	return total;
 }
 
+string CARE_NOTE_DEFAULT = "A care package from your clan. Enjoy!";
+
 string careNote() {
 	string s = get_property(CARE_NOTE);
-	return s == "" ? "A care package from your clan. Enjoy!" : s;
+	return s == "" ? CARE_NOTE_DEFAULT : s;
 }
 
 // The ranks not to send to, as a set keyed by the lower-cased rank.
@@ -196,6 +279,84 @@ boolean [string] careSkipRanks() {
 		if (rank != "") skip[rank.to_lower_case()] = true;
 	}
 	return skip;
+}
+
+/*****************************************************
+	What the Config box is allowed to change
+*****************************************************/
+
+// THE THREE THE PAGE CAN WRITE, and only these three. A relay script answers
+// whatever the browser asks it, and "set any preference you like" is not a
+// thing to leave lying in the relay folder -- so a name that is not one of
+// these is refused rather than set. ar_prefs.ash keeps the same list for the
+// anti-raffle's three, and the reasoning is written out there.
+//
+// arCarePackage is deliberately NOT here. COwliCK's call, 2026-11-21: the page
+// shows what the package is and the gCLI still sets it. An item list is a
+// different kind of value -- it has to be parsed against real item names and
+// refused by name when one is wrong -- and that is its own job.
+boolean [string] careSettable() {
+	boolean [string] allowed;
+	allowed[CARE_DAYS] = true;
+	allowed[CARE_SOURCES] = true;
+	allowed[CARE_NOTE] = true;
+	return allowed;
+}
+
+// How long a note may be. KoL's own kmail box takes far more than this; the
+// cap is here so that a paste accident cannot put a novel in a preference
+// file, and it is generous enough that no note anybody means to write hits it.
+int CARE_NOTE_MAX = 500;
+
+// Each setting's own rule, and "" for a value that is fine. A refusal says
+// what was wrong and never repeats the value back, the same contract
+// arBadValue() keeps.
+//
+// IN THE LIBRARY RATHER THAN THE ENDPOINT, unlike arBadValue(), for one
+// reason: these are the rules a test can get at. care_packages.test.ash
+// imports this file and nothing else, and a validator reachable only through
+// a running relay is a validator checked by hand or not at all.
+string careBadValue(string name, string value) {
+	if (name == CARE_SOURCES) {
+		if (value == "") return "Leave at least one place on.";
+		foreach i, piece in value.split_string(",") {
+			string place = piece;
+			while (place.starts_with(" ")) place = place.substring(1, place.length());
+			while (place.ends_with(" ")) place = place.substring(0, place.length() - 1);
+			// STORAGE IS REFUSED BY NAME rather than falling through to the
+			// sentence below, because it is the one wrong answer somebody has
+			// a reason to try: it was a source until 2026-11-21, it still is
+			// one for the anti-raffle, and a flat "not a place this knows"
+			// would read as a bug rather than as a decision.
+			// Plain ASCII, like every other refusal here: this sentence
+			// travels as JSON and is set as textContent, so an HTML entity
+			// would show up as one and a literal em dash depends on the
+			// charset surviving three hops.
+			if (place == "storage") {
+				return "Care packages are not packed from Hagnk's: "
+					+ "a pull costs one of the day's twenty.";
+			}
+			if (!careIsSource(place)) return "Not a place this knows.";
+		}
+		return "";
+	}
+
+	if (name == CARE_NOTE) {
+		// EMPTY IS ALLOWED and means the default sentence back, which is how
+		// careNote() already reads an unset preference. So clearing the box is
+		// the way to get the default, rather than a refusal telling you to
+		// type something you did not want to choose.
+		if (value.length() > CARE_NOTE_MAX) return "That note is too long.";
+		return "";
+	}
+
+	if (name == CARE_DAYS) {
+		if (value == "" || !value.is_integer()) return "Not a number.";
+		if (value.to_int() < 1) return "At least one day.";
+		return "";
+	}
+
+	return "Not a setting this touches.";
 }
 
 /*****************************************************
@@ -807,6 +968,52 @@ record care_row {
 	string lastLogin;
 	int days;
 };
+
+// The word for a verdict, as the page prints it.
+//
+// HERE RATHER THAN IN THE PAGE because these eight words are now the only
+// thing saying WHY a member is not getting one: the page used to group the
+// rows under eight headings and now draws one table with a tick per row, so
+// the verdict is written into the Send cell of the rows that have no tick.
+// Pinned by a test for the same reason -- a verdict with no word would print
+// its own bare key, which reads as a bug rather than as a reason.
+string careVerdictLabel(string verdict) {
+	if (verdict == CARE_WOULD)    return "would get one";
+	if (verdict == CARE_HAD)      return "already had one";
+	if (verdict == CARE_QUIET)    return "not logged in lately";
+	if (verdict == CARE_INACTIVE) return "account inactive";
+	if (verdict == CARE_SKIPPED)  return "rank skipped";
+	if (verdict == CARE_PENDING)  return "not looked up yet";
+	if (verdict == CARE_UNKNOWN)  return "last login unreadable";
+	if (verdict == CARE_SELF)     return "you";
+	return verdict;
+}
+
+// WHETHER THE SEND TICK IS YOURS TO SET, and whether it starts set. COwliCK's
+// call, 2026-11-21: the rules become a default you can argue with rather than
+// a verdict you cannot.
+//
+// The split is between a reason that is an OPINION and a reason that is a
+// FACT. "Not logged in lately" is this page's own arithmetic against a number
+// you chose, "rank skipped" is a list you typed, "unreadable" and "not looked
+// up yet" are both just missing information -- you may know better than any of
+// them, so they unfold into an empty tick you can set.
+//
+// The three that stay locked are not opinions. You have already sent to them
+// (ticking it sends a second), KoL has marked the account inactive, or it is
+// you. Nothing you know changes any of those, so the box is not drawn at all
+// and the reason stands in its place.
+boolean careTickable(string verdict) {
+	if (verdict == CARE_HAD)      return false;
+	if (verdict == CARE_INACTIVE) return false;
+	if (verdict == CARE_SELF)     return false;
+	return true;
+}
+
+// Only the one the page is for. Everything else is a tick you have to mean.
+boolean careTickedByDefault(string verdict) {
+	return verdict == CARE_WOULD && careTickable(verdict);
+}
 
 // Every member with a verdict, in roster order.
 //

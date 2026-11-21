@@ -1,4 +1,14 @@
-// ar_care.js -- the Care Packages page's look-up button.
+// ar_care.js -- the Care Packages page's three moving parts: the look-up
+// button, the Config box's save-on-change, and the ticked count.
+//
+// The page is server-rendered and means to stay that way, so the test for
+// whether something belongs in here is narrow: it has to be a thing the
+// server cannot answer. Driving a scan the page wants to watch happen,
+// writing a setting without a round trip per keystroke, and following ticks
+// that exist only in this browser all pass it. Anything else -- a verdict, a
+// count of the roster, the price of a send -- is written in ASH, and the
+// moment a number is written twice is the moment the two copies start to
+// disagree.
 //
 // WHAT IT IS FOR. Working out who in the clan is active costs one profile
 // request per member, and on a clan of a couple of hundred that is a minute or
@@ -106,11 +116,27 @@
 		return line;
 	}
 
+	// "191 of 218 ticked", over the table.
+	//
+	// THE DENOMINATOR IS WHO COULD BE TICKED, not who is on the roster. A
+	// clan of 239 here has 21 members with no checkbox at all -- you have
+	// already sent to them, KoL has marked the account inactive, or it is you
+	// -- so "191 of 239" names a total that cannot be reached however many
+	// boxes you tick, and a count whose ceiling is unreachable is a count
+	// nobody can read. The page does not have to pass the number either: the
+	// locked rows carry no <input>, so counting the boxes IS counting who
+	// could be sent to.
+	function careTickedText(ticked, tickable) {
+		if (tickable === 0) return '';
+		return ticked + ' of ' + tickable + ' ticked';
+	}
+
 	if (typeof module !== 'undefined' && module.exports) {
 		module.exports = {
 			careScanNext: careScanNext,
 			careEta: careEta,
 			careProgressText: careProgressText,
+			careTickedText: careTickedText,
 			PROFILE_MS: PROFILE_MS
 		};
 		return;
@@ -119,18 +145,30 @@
 	/* ---- everything below is the page ---- */
 
 	var SCAN = '/ar_care_scan.ash';
+	var PREFS = '/ar_care_prefs.ash';
 
-	var scanButton, stopButton, progress, note;
-	var ask;
+	var scanButton, stopButton, progress, said, configSaid, tickedLine;
+	var ask, askConfig;
 	var running = false;
 	var stopped = false;
 	var startedAt = 0;
 	var fetchedSoFar = 0;
 
 	function say(text, kind) {
-		if (!note) return;
-		note.textContent = text || '';
-		note.className = kind || '';
+		if (!said) return;
+		said.textContent = text || '';
+		said.className = 'care-said ' + (kind || '');
+	}
+
+	// THE CONFIG BOX HAS ITS OWN LINE, and that is why ar_ask.js is a factory
+	// rather than a function: a refusal is reported by whichever `say` the
+	// asker was built with, and "Not a place this knows." appearing beside the
+	// look-up button -- half a page from the checkbox that caused it -- is the
+	// kind of misplacement that reads as an unrelated failure.
+	function configSay(text, kind) {
+		if (!configSaid) return;
+		configSaid.textContent = text || '';
+		configSaid.className = 'care-said ' + (kind || '');
 	}
 
 	function show(text) {
@@ -284,24 +322,169 @@
 		kickOff({ roster: 1 }, 'reading the clan roster…');
 	}
 
+	/* ---- the Config box ---- */
+
+	// Saves one setting and says so.
+	//
+	// RELOAD IS PER SETTING, not per save. "Active Means" and the places
+	// re-decide every verdict in the table below -- who is quiet, what a
+	// package can be packed from -- and those verdicts are written
+	// server-side, so the honest way to show the new ones is to ask the server
+	// again. The note changes nothing but its own readout, and reloading on it
+	// would throw away the Send ticks for no reason at all.
+	//
+	// `landed` is what tells a refusal from a save: ar_ask.js calls `then`
+	// only on success and `always` on every path, and a control left showing a
+	// value the server refused is a control that looks saved.
+	function saveSetting(name, value, opts) {
+		opts = opts || {};
+		var landed = false;
+		configSay('Saving…', 'busy');
+		askConfig(PREFS, { name: name, value: value }, function () {
+			landed = true;
+			if (opts.saved) opts.saved();
+			if (opts.reload) {
+				configSay('Saved — redrawing…', 'done');
+				window.location.reload();
+				return;
+			}
+			configSay('Saved.', 'done');
+		}, function () {
+			if (landed) return;
+			// The refusal itself is already on the line, written by ar_ask.js
+			// through configSay. All that is left is to put the control back
+			// to what the server still holds.
+			if (opts.revert) opts.revert();
+		});
+	}
+
+	function placesOn() {
+		var on = [];
+		var boxes = document.querySelectorAll('.care-place');
+		for (var i = 0; i < boxes.length; i++) {
+			if (boxes[i].checked) on.push(boxes[i].getAttribute('data-place'));
+		}
+		return on;
+	}
+
+	function bindConfig() {
+		var days = document.getElementById('care-days');
+		if (days) {
+			var lastDays = days.value;
+			days.onchange = function () {
+				saveSetting('arCareDays', days.value, {
+					reload: true,
+					revert: function () { days.value = lastDays; }
+				});
+			};
+		}
+
+		var note = document.getElementById('care-note-text');
+		if (note) {
+			// THE LAST VALUE THE SERVER ACCEPTED, moved on only when it has
+			// accepted another. Updating it at the moment of asking is the
+			// easy mistake: a note refused for being too long would then be
+			// "reverted" to itself, and the box would keep a value the
+			// preference does not have.
+			var lastNote = note.value;
+			note.onchange = function () {
+				var asked = note.value;
+				var before = lastNote;
+				saveSetting('arCareNote', asked, {
+					saved: function () { lastNote = asked; },
+					revert: function () { note.value = before; }
+				});
+			};
+		}
+
+		var boxes = document.querySelectorAll('.care-place');
+		for (var i = 0; i < boxes.length; i++) {
+			boxes[i].onchange = (function (box) {
+				return function () {
+					var on = placesOn();
+					// STOPPED HERE RATHER THAN AT THE SERVER, the same way the
+					// anti-raffle's sources are: the server would refuse this
+					// too, but unticking the last box and being told off is a
+					// worse answer than the box refusing to come off, and the
+					// request is not worth making to find out.
+					if (!on.length) {
+						box.checked = true;
+						configSay('Leave at least one place on.', 'err');
+						return;
+					}
+					saveSetting('arCareSources', on.join(','), {
+						reload: true,
+						revert: function () { box.checked = !box.checked; }
+					});
+				};
+			})(boxes[i]);
+		}
+	}
+
+	/* ---- the Send ticks ---- */
+
+	// Counted off the document, never worked out again here. Which rows may be
+	// ticked is decided in ASH (careTickable, ar_care.ash) and arrives as the
+	// presence of an <input>; this only ever counts what is there.
+	function countTicks() {
+		if (!tickedLine) return;
+		var boxes = document.querySelectorAll('.care-tick');
+		var ticked = 0;
+		for (var i = 0; i < boxes.length; i++) {
+			if (boxes[i].checked) ticked++;
+		}
+		tickedLine.textContent = careTickedText(ticked, boxes.length);
+	}
+
+	// ONE LISTENER ON THE TABLE, not 218 on the boxes. A clan of a couple of
+	// hundred is a couple of hundred rows, and a change event from any of them
+	// bubbles to here.
+	function bindTicks() {
+		var table = document.querySelector('.care-list');
+		if (table) {
+			table.addEventListener('change', function (event) {
+				var hit = event.target;
+				if (hit && hit.classList && hit.classList.contains('care-tick')) countTicks();
+			});
+		}
+		countTicks();
+	}
+
 	function start() {
 		scanButton = document.getElementById('care-scan');
 		stopButton = document.getElementById('care-stop');
 		progress = document.getElementById('care-progress');
-		note = document.getElementById('care-note');
-		if (!scanButton) return;
+		said = document.getElementById('care-said');
+		configSaid = document.getElementById('care-config-said');
+		tickedLine = document.getElementById('care-ticked');
 
 		// A HALF-INSTALL SAYS SO. These two files ship together and the page
 		// emits both tags in order, but copying one of them into the relay
 		// folder by hand is how a change gets tried out -- and without this
-		// the button would be there, press cleanly, and do nothing at all.
+		// the controls would all be there, press cleanly, and do nothing at
+		// all. Said in both places, because by now there are controls in both
+		// boxes and either one is where you might be looking.
 		if (!window.arAsk) {
-			scanButton.disabled = true;
-			say('ar_ask.js did not load, so the look-up cannot run.'
-				+ ' Reinstall the script, or reload.', 'err');
+			if (scanButton) scanButton.disabled = true;
+			var dead = document.querySelectorAll('#care-days, #care-note-text, .care-place');
+			for (var i = 0; i < dead.length; i++) dead[i].disabled = true;
+			var missing = 'ar_ask.js did not load, so nothing here can be saved'
+				+ ' or looked up. Reinstall the script, or reload.';
+			say(missing, 'err');
+			configSay(missing, 'err');
 			return;
 		}
 		ask = window.arAsk.make(window.arPwd, say);
+		askConfig = window.arAsk.make(window.arPwd, configSay);
+
+		// BEFORE THE EARLY RETURN BELOW. The Config box and the ticks are
+		// there whether or not anything has been looked up yet, and a page
+		// with no scan button -- which is not a state this page has, but is
+		// one an edit could make -- should still save its settings.
+		bindConfig();
+		bindTicks();
+
+		if (!scanButton) return;
 
 		scanButton.addEventListener('click', begin);
 		if (stopButton) {
