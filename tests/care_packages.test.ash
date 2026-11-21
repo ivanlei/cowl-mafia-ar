@@ -190,6 +190,251 @@ void main() {
 	// friend quoting the marker back at you is not a package you sent.
 	check("sent: a marked message RECEIVED does not count", !(sent.who contains 107));
 
+	/* ---- a response that is not a profile at all ---- */
+
+	// The same shape of guard as careLooksLikeBox above, and it earns its place
+	// for the same reason: KoLmafia serializes its requests, so a relay request
+	// landing while the gCLI is busy is answered with an empty page -- which
+	// parses as "last login unreadable" rather than as nothing. Under the
+	// week-long hold, caching that would pin "unreadable" on somebody for seven
+	// days and no amount of pressing the button would shift it.
+	check("profile: the real page is recognised as a profile",
+		careLooksLikeProfile(profile));
+	check("profile: an empty response is not a profile",
+		!careLooksLikeProfile(""));
+	check("profile: nor is KoL's 'no such player'",
+		!careLooksLikeProfile("<html>No player by that name could be found.</html>"));
+	// Deliberately NOT keyed on the field being read: a genuine profile with no
+	// Last Login line has to stay a profile, or it would be thrown away as a
+	// failed request and re-fetched for ever.
+	check("profile: a profile with no last login is still a profile",
+		careLooksLikeProfile("<td><b>Account Created:</b></td><td>May 1, 2005</td>"));
+
+	/* ---- how long a scan is held, and how fast it runs ---- */
+
+	string savedHold = get_property(CARE_HOLD);
+	string savedBatch = get_property(CARE_BATCH);
+	string savedPause = get_property(CARE_PAUSE);
+
+	set_property(CARE_HOLD, "");
+	checkInt("hold: unset falls back to a week", careHoldDays(), 7);
+	set_property(CARE_HOLD, "0");
+	checkInt("hold: zero is not a window", careHoldDays(), 7);
+	set_property(CARE_HOLD, "3");
+	checkInt("hold: a set value is used", careHoldDays(), 3);
+	checkInt("hold: and in seconds", careHoldSeconds(), 3 * 24 * 60 * 60);
+
+	// A row is fresh against that window and nothing else -- and a row nobody
+	// has looked at is never fresh however new its stamp, which is what keeps
+	// "not looked up yet" from reading as "looked up and unreadable".
+	care_login row;
+	row.looked = true;
+	row.fetchedAt = 1000000;
+	check("hold: a row inside the window is fresh",
+		careLoginFresh(row, 1000000 + careHoldSeconds() - 10));
+	check("hold: a row past the window is not",
+		!careLoginFresh(row, 1000000 + careHoldSeconds() + 10));
+	row.looked = false;
+	check("hold: an unlooked row is never fresh, however new",
+		!careLoginFresh(row, 1000000));
+
+	set_property(CARE_BATCH, "");
+	checkInt("batch: unset falls back to five", careScanBatch(), 5);
+	set_property(CARE_BATCH, "0");
+	checkInt("batch: zero would be a loop that fetches nothing", careScanBatch(), 5);
+	set_property(CARE_BATCH, "9");
+	checkInt("batch: a set value is used", careScanBatch(), 9);
+	set_property(CARE_BATCH, "500");
+	checkInt("batch: and is capped", careScanBatch(), CARE_BATCH_MAX);
+
+	// THE ONE THAT BIT, caught before it shipped but only just. An unset
+	// preference is "" and to_int()s to 0, and 0 is a value this setting
+	// deliberately honours ("as fast as it answers") -- so without asking
+	// whether it is set at all, never having set it would mean the fastest
+	// possible scan, which is the opposite of what the default is for.
+	set_property(CARE_PAUSE, "");
+	checkInt("pause: unset falls back to a second, not to no pause",
+		careScanPause(), 1000);
+	set_property(CARE_PAUSE, "0");
+	checkInt("pause: an explicit zero IS no pause", careScanPause(), 0);
+	set_property(CARE_PAUSE, "250");
+	checkInt("pause: a set value is used", careScanPause(), 250);
+	set_property(CARE_PAUSE, "-5");
+	checkInt("pause: a negative is a typo, not an intention", careScanPause(), 1000);
+
+	set_property(CARE_HOLD, savedHold);
+	set_property(CARE_BATCH, savedBatch);
+	set_property(CARE_PAUSE, savedPause);
+	checkString("hold: the setting was put back", get_property(CARE_HOLD), savedHold);
+	checkString("batch: the setting was put back", get_property(CARE_BATCH), savedBatch);
+	checkString("pause: the setting was put back", get_property(CARE_PAUSE), savedPause);
+
+	/* ---- the held roster is replaced, never merged ---- */
+
+	// THE FAILURE THIS IS FOR: a member who has left the clan has to disappear
+	// from what is held. Merged instead of replaced they would stay, with the
+	// rank they used to hold, in a list the page then offers to send a package
+	// to -- and nothing about the page would look wrong.
+	//
+	// It writes the real file, so the real file is put back BYTE FOR BYTE in a
+	// finally, which runs whether the checks pass, fail or abort. The cost of
+	// that going wrong is one re-scan, and the alternative was leaving the one
+	// property that matters here untested.
+	string heldBefore = file_to_buffer("data/" + CARE_ROSTER_FILE).to_string();
+	try {
+		care_member [int] five = members;      // the 5-member fixture roster
+		careSaveRoster(five);
+		checkInt("roster held: five saved reads back as five",
+			count(careHeldRoster()), 5);
+
+		care_member [int] two;
+		two[0] = members[0];
+		two[1] = members[1];
+		careSaveRoster(two);
+		checkInt("roster held: saving two REPLACES the five, not merges",
+			count(careHeldRoster()), 2);
+
+		// And the stamp is this save's, which is what careSnapshotFresh reads.
+		check("roster held: the snapshot is stamped as taken just now",
+			careSnapshotAt() > 0 && (now_to_int() / 1000) - careSnapshotAt() < 60);
+		check("roster held: and so reads as fresh", careSnapshotFresh());
+	} finally {
+		buffer putBack;
+		putBack.append(heldBefore);
+		putBack.buffer_to_file("data/" + CARE_ROSTER_FILE);
+		// The file is back; the in-memory copy is still the two-member one
+		// this test wrote, so it has to be dropped or everything below would
+		// run against a roster of two.
+		careRosterLoaded = false;
+	}
+	// check() and NOT checkString(), which prints what it compared: the held
+	// roster is every clan member's name and title, and checkString put all
+	// 16KB of it into the gCLI and from there into the debug log -- the file
+	// KoLmafia asks you to attach to a bug report. Other people's names are
+	// not this test's to publish.
+	check("roster held: the real file was put back",
+		file_to_buffer("data/" + CARE_ROSTER_FILE).to_string() == heldBefore);
+
+	/* ---- the scan's queue ---- */
+
+	// READ-ONLY, DELIBERATELY. Everything above works on a fixture or on a
+	// preference it puts back; this works on whatever this character actually
+	// has held, because writing the held roster from a test would throw away
+	// the real one. So what is checked is the invariants, which hold whatever
+	// is on disk -- including an empty disk.
+	int [int] queue = careScanQueue();
+	care_member [int] heldRoster = careHeldRoster();
+	care_member [int] byWho;
+	foreach i, m in heldRoster byWho[m.who] = m;
+
+	boolean queueIsInRoster = true;
+	boolean queueHasSelf = false;
+	boolean queueHasInactive = false;
+	foreach i, who in queue {
+		if (!(byWho contains who)) queueIsInRoster = false;
+		if (who == my_id().to_int()) queueHasSelf = true;
+		if (byWho contains who && byWho[who].inactive) queueHasInactive = true;
+	}
+
+	check("queue: everyone in it is in the held roster", queueIsInRoster);
+	check("queue: it never includes you", !queueHasSelf);
+	// An account KoL has already marked inactive is one the roster tells us
+	// about for free, so a profile request for it is pure waste.
+	check("queue: nor an account KoL says is inactive", !queueHasInactive);
+	check("queue: and it is no longer than the roster",
+		count(queue) <= count(heldRoster));
+	checkInt("queue: careScanTodo agrees with it", careScanTodo(), count(queue));
+
+	/* ---- the queue against the hold window ---- */
+
+	// WHAT THIS IS FOR, and it was found by planting the fault rather than by
+	// reasoning: a queue built from "is there a row for this member" instead of
+	// "is that row still fresh" passes every invariant above, because on a
+	// freshly scanned clan every row IS fresh. It fails a week later, and it
+	// fails silently -- the button would offer nothing to do while the page
+	// showed logins eight days old, for ever.
+	//
+	// NOTHING IS WRITTEN TO DISK HERE. The caches are plain file-scope maps
+	// (see ar_care.ash for why they stopped being static), so a test can stand
+	// them up in memory, ask the question, and drop the flags again. That is
+	// also why this does not need the file round-trip the save test above does.
+	int nowSeconds = now_to_int() / 1000;
+
+	// A ROW AT A TIME, with no `care_saved b = a` between them. An ASH record
+	// is an aggregate and an aggregate is assigned BY REFERENCE, so copying
+	// one and editing the copy edits the original: the first version of this
+	// built three rows that were all the same record, the roster came out as
+	// the same member three times, and two checks failed in a way that looked
+	// like the queue was broken rather than the test.
+	care_saved [int] standIn;
+	standIn[0].who = 901;
+	standIn[0].name = "Fresh Row";
+	standIn[0].rank = "Member";
+	standIn[0].savedAt = nowSeconds;
+	standIn[0].format = CARE_ROSTER_FORMAT;
+
+	standIn[1].who = 902;
+	standIn[1].name = "Stale Row";
+	standIn[1].rank = "Member";
+	standIn[1].savedAt = nowSeconds;
+	standIn[1].format = CARE_ROSTER_FORMAT;
+
+	standIn[2].who = 903;
+	standIn[2].name = "Already Had One";
+	standIn[2].rank = "Member";
+	standIn[2].savedAt = nowSeconds;
+	standIn[2].format = CARE_ROSTER_FORMAT;
+
+	care_login [int] standInLogins;
+	standInLogins[901].looked = true;
+	standInLogins[901].lastLogin = "November 20, 2026";
+	standInLogins[901].days = 1;
+	standInLogins[901].fetchedAt = nowSeconds;
+	standInLogins[901].format = CARE_LOGIN_FORMAT;
+
+	// The same row, a minute past the window.
+	standInLogins[902].looked = true;
+	standInLogins[902].lastLogin = "November 20, 2026";
+	standInLogins[902].days = 1;
+	standInLogins[902].fetchedAt = nowSeconds - careHoldSeconds() - 60;
+	standInLogins[902].format = CARE_LOGIN_FORMAT;
+
+	standInLogins[903].looked = true;
+	standInLogins[903].lastLogin = "November 20, 2026";
+	standInLogins[903].days = 1;
+	standInLogins[903].fetchedAt = nowSeconds;
+	standInLogins[903].format = CARE_LOGIN_FORMAT;
+
+	int [int] standInSent;
+	standInSent[903] = nowSeconds;
+
+	try {
+		careRosterCache = standIn;
+		careRosterLoaded = true;
+		careLoginCache = standInLogins;
+		careLoginsRead = true;
+		careSentScratch = standInSent;
+		careSentScratchLoaded = true;
+
+		int [int] standInQueue = careScanQueue();
+		boolean [int] queued;
+		foreach i, who in standInQueue queued[who] = true;
+
+		checkInt("window: only the member whose row has aged out is queued",
+			count(standInQueue), 1);
+		check("window: the expired row is the one queued", queued contains 902);
+		check("window: a row still inside the window is left alone",
+			!(queued contains 901));
+		check("window: and somebody the scan noted as already sent to is skipped",
+			!(queued contains 903));
+	} finally {
+		// Drop the stand-ins so anything after this reads the real files again.
+		careRosterLoaded = false;
+		careLoginsRead = false;
+		careLoginsDirty = false;
+		careSentScratchLoaded = false;
+	}
+
 	/* ---- the package's own problems ---- */
 
 	// With nothing configured the page must refuse, and it must be a fatal

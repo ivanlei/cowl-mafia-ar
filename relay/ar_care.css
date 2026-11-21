@@ -21,6 +21,9 @@
 	--care-rule-soft: light-dark(#eee, #2f343c);
 	--care-warn:      light-dark(#9a3b00, #ffb07a);
 	--care-link:      light-dark(#0b57d0, #9ec5ff);
+	/* The look-up button's face. A button left with no background of its own
+	 * gets the browser's, which on a dark page is a light slab. */
+	--care-button:    light-dark(#f2f3f5, #2f343c);
 }
 
 body {
@@ -154,4 +157,60 @@ a {
 	.care-seen {
 		white-space: normal;
 	}
+}
+
+/* The look-up: the one control on the page.
+ *
+ * Tap-sized rather than text-sized, because this is pressed on an iPad in the
+ * relay browser -- 32px of height is about the smallest a thumb finds reliably,
+ * and the progress line sits beside it rather than under it so that pressing
+ * the button does not move the thing you are reading. */
+.care-scan {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 10px;
+}
+
+.care-scan button {
+	min-height: 32px;
+	padding: 4px 12px;
+	font: inherit;
+	color: var(--care-ink);
+	background: var(--care-button);
+	border: 1px solid var(--care-rule);
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+/* DISABLED HAS TO LOOK DISABLED. The whole point of the button is that the
+ * page no longer does a minute of fetching without saying so, and a button
+ * that still looks pressable while a scan runs is the same failure in
+ * miniature. */
+.care-scan button:disabled {
+	color: var(--care-quiet);
+	cursor: default;
+	opacity: 0.6;
+}
+
+/* How far the scan has got. Tabular figures so a counter climbing from 9 to 10
+ * to 100 does not shuffle the words after it sideways. */
+.care-progress {
+	color: var(--care-quiet);
+	font-variant-numeric: tabular-nums;
+}
+
+.care-note-line:not(:empty) {
+	color: var(--care-warn);
+}
+
+/* How old what is held is, said next to the conclusions drawn from it. */
+.care-held {
+	margin: 0 0 12px;
+	color: var(--care-quiet);
+}
+
+.care-stale {
+	color: var(--care-warn);
 }

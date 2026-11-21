@@ -98,8 +98,28 @@ remembered in a month. A package is told apart from an ordinary conversation by
 a marker line in the message, which is why the page does not count the kmail you
 sent somebody last Tuesday.
 
+**Nothing is looked up until you ask for it.** The last login is only on each
+member's own profile, so a clan of a couple of hundred is a couple of hundred
+requests however it is arranged — about a minute of them. So the page draws
+straight away from what it already holds, and the look-up is a button: it walks
+the roster, then fetches profiles a few at a time with a pause between, buttons
+disabled, with a line saying how far it has got and roughly how long is left.
+**Stop** ends it after the current batch and keeps what it found, so the button
+then offers to continue from there. (It used to spend eighty profile fetches
+inside the page render — eight seconds of blank browser, and then a sentence
+asking you to reload for the next eighty.)
+
+**What it finds is held for a week**, the roster and the last logins both, with
+the age of it printed next to the conclusions drawn from it. That is a real
+trade: a last login read six days ago can call somebody quiet who came back on
+Tuesday. Shorten the window if that matters more to you than the requests do.
+
+**Your sent mail is not held.** It is re-read every time the page is drawn, at
+two requests, because who has already had one is the answer whose being stale
+would cost somebody a second package.
+
 **It does not send anything yet.** Not as a promise: there is no send endpoint
-in the repository, no form on the page and no script. That half comes later.
+in the repository and no form on the page. That half comes later.
 
 Open it from the relay browser's Scripts menu, as "Care Packages".
 
@@ -111,6 +131,12 @@ Open it from the relay browser's Scripts menu, as "Care Packages".
 | `arCareSources` | `inventory,closet,display,storage` | where a package may be packed from |
 | `arCareNote` | a short default | the message that goes with one |
 | `arCareSkipRanks` | empty | clan ranks not to send to |
+| `arCareHoldDays` | `7` | how long a look-up's roster and last logins are kept |
+| `arCareScanBatch` | `5` | profiles fetched per request during a look-up |
+| `arCareScanPause` | `1000` | ms between batches — with the batch, about three a second |
+
+The last two are there so you can be gentler on KoL's server than this ships,
+without editing a script; `0` for the pause means as fast as it answers.
 
 With `arCarePackage` unset the page offers nothing to press and says so — a
 tool that gives your items away to a hundred people should not arrive with an

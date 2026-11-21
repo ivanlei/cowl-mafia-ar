@@ -18,10 +18,17 @@
 //                     Name, id, rank and title; NO last login -- neither this
 //                     page nor clan_detailedroster.php carries one.
 //   each last login   showplayer.php?who=<id>, one request PER MEMBER. This is
-//                     the expensive part, so it is cached on disk and spent
-//                     from a per-load budget.
+//                     the expensive part.
 //   who already had   messages.php, TWO requests for the whole history. See
 //                     careAlreadySent().
+//
+// WHEN EACH OF THOSE HAPPENS, which is the thing this file was reorganised
+// around (2026-11-21). Drawing the page does the mailbox read and nothing else:
+// the roster and the logins are read off disk, held for careHoldDays(), and
+// refreshed only when somebody presses the button that drives ar_care_scan.ash.
+// It used to walk the roster and spend eighty profile fetches inside the page
+// render, which took about eight seconds, could not report progress, and then
+// asked you to reload to do the next eighty.
 
 // Shares this repository's own item sourcing with the anti-raffle: where a
 // thing may be taken from, whether that place will hand it over today, and how
@@ -49,8 +56,72 @@ string CARE_MEAT    = "arCareMeat";
 string CARE_SOURCES  = "arCareSources";
 string CARE_NOTE    = "arCareNote";
 string CARE_SKIP    = "arCareSkipRanks";
+string CARE_HOLD    = "arCareHoldDays";
+string CARE_BATCH   = "arCareScanBatch";
+string CARE_PAUSE   = "arCareScanPause";
 
 int CARE_DAYS_FALLBACK = 14;
+
+// HOW LONG A SCAN IS KEPT, and the one thing that distinguishes this page from
+// the version that annoyed whoever opened it: nothing here is fetched unless
+// somebody presses the button, so what is on disk is what the page draws until
+// it is a week old.
+//
+// Seven days, which is a REAL TRADE and not a free one. A last login read a
+// week ago can say "quiet" about somebody who came back on Tuesday, and
+// careDays() is normally 14 -- so a 7-day-old snapshot can be wrong about a
+// member in exactly one direction: left out of a send they should have had.
+// The page answers that by saying how old the snapshot is, in its header, every
+// time it draws; a decision made on six-day-old logins is visibly made on
+// six-day-old logins. The previous version instead re-read everything every
+// twelve hours, which is where the eight-second page load came from.
+int CARE_HOLD_FALLBACK = 7;
+
+// A SCAN'S RATE, as a batch and a pause rather than a single "per second",
+// because those are the two numbers the two halves actually use: the endpoint
+// fetches `batch` profiles in one request, and the page waits `pause` ms before
+// asking for the next lot. 5 and 1000ms is about three a second measured
+// against a profile's own ~100ms, so a 216-member clan is about 75 seconds.
+//
+// Preferences and not constants because the right rate is a judgement about
+// somebody else's server, and the person running it should be able to be
+// kinder without editing a script.
+int CARE_BATCH_FALLBACK = 5;
+int CARE_PAUSE_FALLBACK = 1000;
+
+// A batch of zero or a negative one would be a loop that asks forever and
+// never fetches, so both fall back rather than being passed on. The ceiling is
+// the same reasoning in the other direction: a batch big enough to sit in one
+// request for a minute is a request KoLmafia is holding a slot open for.
+int CARE_BATCH_MAX = 25;
+
+int careHoldDays() {
+	int n = get_property(CARE_HOLD).to_int();
+	return n > 0 ? n : CARE_HOLD_FALLBACK;
+}
+
+int careHoldSeconds() { return careHoldDays() * 24 * 60 * 60; }
+
+int careScanBatch() {
+	int n = get_property(CARE_BATCH).to_int();
+	if (n < 1) return CARE_BATCH_FALLBACK;
+	return n > CARE_BATCH_MAX ? CARE_BATCH_MAX : n;
+}
+
+// Zero IS allowed here, and means "as fast as it answers". A negative one is a
+// typo rather than an intention.
+//
+// THE EMPTY CHECK IS THE WHOLE FUNCTION. An unset preference is "" and
+// to_int()s to 0, and 0 is a value this one deliberately honours -- so without
+// asking first, never having set the preference would silently mean the fastest
+// possible scan, which is the opposite of what the default is for. The other
+// two above are safe from this only because 0 is not meaningful to them.
+int careScanPause() {
+	string raw = get_property(CARE_PAUSE);
+	if (raw == "" || !raw.is_integer()) return CARE_PAUSE_FALLBACK;
+	int n = raw.to_int();
+	return n >= 0 ? n : CARE_PAUSE_FALLBACK;
+}
 
 // THE PACKAGE IS EMPTY UNTIL YOU SET IT, and the page offers no send button
 // while it is. A tool that gives your items away should not arrive with an
@@ -153,16 +224,21 @@ string careBody() { return careNote() + "\n\n" + CARE_MARK; }
 int CARE_LOGIN_FORMAT = 2;   // 2: care_login gained `looked`
 string CARE_LOGIN_FILE = "ar_care_logins.txt";
 
-// Twelve hours.
+// HOW LONG A ROW IS GOOD FOR is careHoldSeconds(), the same window the roster
+// below is held for. Was a hardcoded twelve hours, which meant a page opened
+// the next day re-read the whole clan eighty profiles at a time.
 //
 // A DELIBERATE DEPARTURE from this repo's cache-stamp convention, which is "a
 // stamp of what the answer depends on" rather than a clock
 // -- because another player's last login depends on nothing this character
 // can observe. A clock is the only
-// stamp available, so the question is only how stale is tolerable: an N-day
-// window decided on week-old data silently drops people who have come back,
-// which is the failure that matters here.
-int CARE_LOGIN_TTL = 12 * 60 * 60;
+// stamp available, so the question is only how stale is tolerable, which is now
+// the reader's call rather than this file's: see CARE_HOLD_FALLBACK for what
+// the week costs.
+//
+// PER ROW AND NOT PER SNAPSHOT, which is what makes "look up again" cheap: a
+// scan re-fetches the rows that have aged out and leaves the rest alone, so a
+// member looked up yesterday is not looked up again today.
 
 record care_login {
 	string lastLogin;   // KoL's own words, e.g. "November 10, 2026"
@@ -176,14 +252,25 @@ record care_login {
 	boolean looked;
 };
 
-// Read once per interpreter and saved only if something changed. A relay
-// script gets a fresh interpreter per request, so `static` is a cache across
-// the rows of one page load and the file is the cache across page loads.
-static {
-	care_login [int] careLoginCache;
-	boolean careLoginsRead;
-	boolean careLoginsDirty;
-}
+// Read once per request and saved only if something changed: a cache across
+// the rows of one page load, with the file as the cache across page loads.
+//
+// NOT `static`, AND THAT IS A CORRECTION. This block used to be a static one,
+// under a comment saying "a relay script gets a fresh interpreter per
+// request". It does not. KoLmafia caches the compiled script and a static
+// scope executes only on the first run (StaticScope.execute: `if
+// (!this.executed)`), so a static here keeps its value from request to
+// request -- and a plain declaration is re-initialised on every invocation,
+// which is what this wants.
+//
+// It was harmless while one script both read and wrote these files, and it
+// stopped being harmless the moment ar_care_scan.ash started writing them:
+// the page had read an empty cache and flagged itself as loaded, so after a
+// scan wrote 239 members it went on reporting "Nothing is held yet" over a
+// 16KB file. Measured, 2026-11-21, which is how this was found.
+care_login [int] careLoginCache;
+boolean careLoginsRead;
+boolean careLoginsDirty;
 
 void careReadLogins() {
 	if (careLoginsRead) return;
@@ -207,6 +294,13 @@ void careSaveLogins() {
 	if (!careLoginsDirty) return;
 	careLoginsDirty = false;
 	map_to_file(careLoginCache, CARE_LOGIN_FILE);
+}
+
+// Whether this row is still good, which is one place rather than three so that
+// the page's "not looked up yet", the scan's queue and the fetch itself cannot
+// disagree about what fresh means.
+boolean careLoginFresh(care_login entry, int nowSeconds) {
+	return entry.looked && nowSeconds - entry.fetchedAt < careHoldSeconds();
 }
 
 /*****************************************************
@@ -241,6 +335,27 @@ int careDaysSince(string dateText) {
 string careParseLastLogin(string page) {
 	matcher found = create_matcher("<b>Last Login:</b></td><td>([^<]+)</td>", page);
 	return found.find() ? found.group(1) : "";
+}
+
+// Whether a response is actually somebody's profile, the same check and for the
+// same reason as careLooksLikeBox(): KoLmafia serializes its requests, so a
+// relay request that lands while the gCLI is busy is answered with an empty
+// page, and an empty page parses as "last login unreadable" rather than as
+// nothing.
+//
+// IT MATTERS MORE NOW THAT A ROW IS KEPT FOR A WEEK. Caching that answer used
+// to be wrong for twelve hours; under careHoldDays() it would pin "last login
+// unreadable" on somebody for seven days, and no amount of pressing the button
+// would shift it, because the row would look fresh. So a response that is not a
+// profile is not cached at all and the member stays in the scan's queue.
+//
+// "Account Created:" and not "Last Login:" ON PURPOSE. The marker has to be
+// independent of the field being read, or a genuine profile that simply has no
+// last login would be thrown away as a failed request and re-fetched for ever.
+// Checked against a live profile (30KB, 2026-11-21): the block carries Account
+// Created, Last Login, Class, Sign, Gender and the three stats.
+boolean careLooksLikeProfile(string page) {
+	return page.contains_text("Account Created:");
 }
 
 record care_member {
@@ -314,17 +429,160 @@ care_member [int] careRoster() {
 	return all;
 }
 
+/*****************************************************
+	The roster snapshot
+*****************************************************/
+
+// THE ROSTER IS HELD TOO, which it was not before: every page load walked
+// clan_members.php's three pages, and on this clan that is three requests
+// before anything is drawn. Held for the same window as the logins above,
+// written by one scan, and replaced whole.
+//
+// KEYED BY POSITION, NOT BY PLAYER ID, for one reason: an int-keyed ASH map
+// iterates in ascending key order, so 0..n-1 preserves the order KoL listed
+// the clan in -- and the page's sections are drawn in roster order within each
+// verdict. Keyed by `who` the order would become numeric by player id, which
+// is roughly account age and looks arbitrary.
+int CARE_ROSTER_FORMAT = 1;
+string CARE_ROSTER_FILE = "ar_care_roster.txt";
+
+record care_saved {
+	int who;
+	string name;
+	string rank;
+	string title;
+	boolean inactive;
+	int savedAt;        // epoch SECONDS, as the login cache does it
+	int format;
+};
+
+// Plain, not `static`, for the reason spelled out above the login cache: a
+// static scope outlives the request, and another script writes this file.
+care_saved [int] careRosterCache;
+boolean careRosterLoaded;
+
+void careReadRoster() {
+	if (careRosterLoaded) return;
+	careRosterLoaded = true;
+	file_to_map(CARE_ROSTER_FILE, careRosterCache);
+
+	// A shape change invalidates rather than lies, the same way the login cache
+	// does it -- and here it matters more, because a row read with fields in
+	// the wrong places would put somebody's title in their rank and silently
+	// change who a rank-skip excludes.
+	foreach i, row in careRosterCache {
+		if (row.format != CARE_ROSTER_FORMAT) {
+			care_saved [int] empty;
+			careRosterCache = empty;
+			return;
+		}
+	}
+}
+
+// When the held roster was taken, or 0 for "there isn't one". One walk writes
+// every row with the same stamp, so any row answers for the snapshot; row 0 is
+// just the one that always exists if any do.
+int careSnapshotAt() {
+	careReadRoster();
+	int at = 0;
+	foreach i, row in careRosterCache {
+		at = row.savedAt;
+		break;
+	}
+	return at;
+}
+
+int careSnapshotAgeSeconds() {
+	int at = careSnapshotAt();
+	return at == 0 ? -1 : (now_to_int() / 1000) - at;
+}
+
+boolean careSnapshotFresh() {
+	int age = careSnapshotAgeSeconds();
+	return age >= 0 && age < careHoldSeconds();
+}
+
+// The held roster as the rest of this file wants it. care_member rather than
+// care_saved so that everything downstream -- carePlan, the rank counts, the
+// page -- is reading the same record whether it came off disk or off KoL.
+care_member [int] careHeldRoster() {
+	careReadRoster();
+	care_member [int] out;
+	foreach i, row in careRosterCache {
+		care_member m;
+		m.who = row.who;
+		m.name = row.name;
+		m.rank = row.rank;
+		m.title = row.title;
+		m.inactive = row.inactive;
+		out[count(out)] = m;
+	}
+	return out;
+}
+
+// REPLACED WHOLE, NEVER MERGED. A member who has left the clan has to
+// disappear, and a merge would keep them -- with a rank they no longer hold,
+// in a list the page then offers to send to.
+void careSaveRoster(care_member [int] roster) {
+	care_saved [int] fresh;
+	int now = now_to_int() / 1000;
+	foreach i, m in roster {
+		care_saved row;
+		row.who = m.who;
+		row.name = m.name;
+		row.rank = m.rank;
+		row.title = m.title;
+		row.inactive = m.inactive;
+		row.savedAt = now;
+		row.format = CARE_ROSTER_FORMAT;
+		fresh[count(fresh)] = row;
+	}
+	careRosterCache = fresh;
+	careRosterLoaded = true;
+	map_to_file(careRosterCache, CARE_ROSTER_FILE);
+}
+
+
 // A member's last login, from the cache when it is fresh and from their profile
-// when it is not. Spends one request from `budget` and answers an empty record
-// when the budget is gone, so a first load on a big clan comes back as a page
-// with some rows unknown rather than not at all.
+// when it is not. Spends one request from `budget` and answers an unlooked
+// record when the budget is gone.
+//
+// ONLY THE SCAN CALLS THIS. `budget` is now a batch size -- how many profiles
+// one request from the page may fetch -- rather than a page load's allowance,
+// which is why the number comes from careScanBatch() and not from a constant in
+// the page. It stays an int[int] because ASH passes an aggregate by reference
+// and an int by value, and the whole batch has to draw on one count.
+// What is on disk for this member, or an unlooked-at record. FETCHES NOTHING,
+// and that is the point: the page is built out of this, so opening it costs no
+// profile request at all. A member with nothing fresh here draws as "not looked
+// up yet" and lands in the scan's queue.
+care_login careCachedLogin(int who) {
+	careReadLogins();
+	int now = now_to_int() / 1000;
+	if (careLoginCache contains who && careLoginFresh(careLoginCache[who], now)) {
+		return careLoginCache[who];
+	}
+
+	care_login notyet;
+	notyet.days = -1;
+	notyet.format = CARE_LOGIN_FORMAT;
+	notyet.looked = false;
+	return notyet;
+}
+
+// Whether a scan still owes this member a profile fetch. One predicate for the
+// queue count, the batch and the page's button label, so none of the three can
+// think a different number of people are outstanding.
+boolean careLoginNeeded(int who) {
+	return !careCachedLogin(who).looked;
+}
+
 care_login careLastLogin(int who, int [int] budget) {
 	careReadLogins();
 
 	int now = now_to_int() / 1000;
-	if (careLoginCache contains who && now - careLoginCache[who].fetchedAt < CARE_LOGIN_TTL) {
-		return careLoginCache[who];
-	}
+	care_login held = careCachedLogin(who);
+	if (held.looked) return held;
 
 	care_login notyet;
 	notyet.days = -1;
@@ -334,6 +592,15 @@ care_login careLastLogin(int who, int [int] budget) {
 	budget[0] = budget[0] - 1;
 
 	string page = visit_url("showplayer.php?who=" + who);
+
+	// A request that did not bring back a profile leaves NO row behind, so the
+	// member stays in the queue for the next batch rather than being remembered
+	// as unreadable for a week. See careLooksLikeProfile().
+	//
+	// The budget is still spent: the request happened. That is also what stops
+	// a scan spinning on a clan KoL is refusing to answer about -- the batch
+	// reports nothing fetched and the page stops asking.
+	if (!careLooksLikeProfile(page)) return notyet;
 
 	care_login entry;
 	entry.lastLogin = careParseLastLogin(page);
@@ -446,6 +713,80 @@ care_sent careAlreadySent() {
 }
 
 /*****************************************************
+	The scan's own note of who has already had one
+*****************************************************/
+
+// WHY THIS EXISTS AT ALL, since the page reads the mailbox live and does not
+// use this: without it a scan fetches a profile for every member including the
+// ones who already have a package, which after a send is most of the clan. The
+// mailbox is two requests for the whole history, so reading it once when a scan
+// starts and consulting it on each batch turns dozens of pointless profile
+// fetches into two.
+//
+// SCAN SCRATCH AND NOT A RECORD OF ANYTHING. The page's answer to "who has
+// already had one" is always the live mailbox, which is what COwliCK chose
+// (2026-11-21); this file only ever decides which profiles are worth fetching.
+// Being wrong costs a handful of wasted requests, which is why it is allowed to
+// be a week old at all -- and why nothing refuses to work when it is missing.
+string CARE_SENT_FILE = "ar_care_sent.txt";
+
+// Plain, not `static`, for the same reason as the two caches above.
+int [int] careSentScratch;
+boolean careSentScratchLoaded;
+
+void careReadSentScratch() {
+	if (careSentScratchLoaded) return;
+	careSentScratchLoaded = true;
+	file_to_map(CARE_SENT_FILE, careSentScratch);
+}
+
+// who -> the epoch seconds it was noted at, so a stale note can be ignored
+// rather than trusted forever.
+void careSaveSentScratch(boolean [int] who) {
+	int [int] fresh;
+	int now = now_to_int() / 1000;
+	foreach id in who fresh[id] = now;
+	careSentScratch = fresh;
+	careSentScratchLoaded = true;
+	map_to_file(careSentScratch, CARE_SENT_FILE);
+}
+
+boolean careScratchSaysSent(int who) {
+	careReadSentScratch();
+	if (!(careSentScratch contains who)) return false;
+	return (now_to_int() / 1000) - careSentScratch[who] < careHoldSeconds();
+}
+
+// EVERYTHING A SCAN LEFT BEHIND, forgotten. This is what "look up again" means
+// while the held roster is still fresh: without it, pressing it would re-walk
+// the roster, find every login still inside the week, fetch nothing, and look
+// exactly like a button that does not work.
+//
+// HERE AND NOT IN THE ENDPOINT, although only the endpoint calls it, because
+// the three caches above are this file's business. An endpoint that emptied
+// the files and left those in-memory maps holding the old rows would answer
+// its own request out of them -- the page would be told the clan still has 239
+// members a moment after being told it was cleared.
+void careForgetSnapshot() {
+	care_saved [int] noRoster;
+	careRosterCache = noRoster;
+	careRosterLoaded = true;
+	map_to_file(careRosterCache, CARE_ROSTER_FILE);
+
+	care_login [int] noLogins;
+	careLoginCache = noLogins;
+	careLoginsRead = true;
+	careLoginsDirty = false;
+	map_to_file(careLoginCache, CARE_LOGIN_FILE);
+
+	int [int] noSent;
+	careSentScratch = noSent;
+	careSentScratchLoaded = true;
+	map_to_file(careSentScratch, CARE_SENT_FILE);
+}
+
+
+/*****************************************************
 	The plan
 *****************************************************/
 
@@ -456,7 +797,7 @@ string CARE_HAD      = "had";       // already in your sent mail
 string CARE_QUIET    = "quiet";     // has not logged in within N days
 string CARE_INACTIVE = "inactive";  // KoL marks the account inactive
 string CARE_SKIPPED  = "skipped";   // their rank is in careSkipRanks
-string CARE_PENDING  = "pending";   // not looked up yet: the budget ran out
+string CARE_PENDING  = "pending";   // not looked up yet: no scan has reached them
 string CARE_UNKNOWN  = "unknown";   // looked up, and the profile would not parse
 string CARE_SELF     = "self";      // you
 
@@ -467,25 +808,35 @@ record care_row {
 	int days;
 };
 
-// Every member with a verdict, in roster order. `budget` is spent on the
-// profiles; pass it by reference as an int[int] because ASH passes an aggregate
-// by reference and an int by value, and every row has to draw on the one
-// budget.
-// Set by carePlan() so the page can tell "your clan is empty" from "the roster
-// did not come back", and refuse to send when the mailbox did not either. A
+// Every member with a verdict, in roster order.
+//
+// FETCHES NO PROFILE. It reads the held roster and the held logins off disk and
+// the mailbox off KoL, so drawing the page costs the mailbox's two requests and
+// nothing else -- where this used to spend eighty profile fetches inside the
+// render and leave the rest "pending" with a sentence asking you to reload.
+// Everything a member's row needs that is not on disk yet is what the scan is
+// for; see ar_care_scan.ash.
+//
+// THE MAILBOX STAYS LIVE on every load, which is COwliCK's call (2026-11-21):
+// the roster and the logins are a week's cache, but who has already had one is
+// read fresh every time, because that is the answer whose being stale would
+// cost somebody a second package.
+//
+// Set by carePlan() so the page can tell "your clan is empty" from "no scan has
+// run yet", and refuse to send when the mailbox did not come back either. A
 // file-scope pair rather than a return value because carePlan already returns
 // the rows and ASH has no tuple; read it straight after calling.
 boolean careRosterRead = false;
 boolean careSentRead = false;
 
-care_row [int] carePlan(int [int] budget) {
+care_row [int] carePlan() {
 	care_sent sent = careAlreadySent();
 	careSentRead = sent.read;
 	int mine = my_id().to_int();
 	int window = careDays();
 	boolean [string] skip = careSkipRanks();
 
-	care_member [int] roster = careRoster();
+	care_member [int] roster = careHeldRoster();
 	careRosterRead = count(roster) > 0;
 
 	care_row [int] rows;
@@ -513,7 +864,7 @@ care_row [int] carePlan(int [int] budget) {
 		} else if (m.inactive) {
 			r.verdict = CARE_INACTIVE;
 		} else {
-			care_login seen = careLastLogin(m.who, budget);
+			care_login seen = careCachedLogin(m.who);
 			r.lastLogin = seen.lastLogin;
 			r.days = seen.days;
 			if (!seen.looked)             r.verdict = CARE_PENDING;
@@ -523,9 +874,42 @@ care_row [int] carePlan(int [int] budget) {
 		}
 		rows[count(rows)] = r;
 	}
-	careSaveLogins();
+	// No careSaveLogins() here any more, and its absence is the change: this
+	// function no longer writes anything, because it no longer fetches
+	// anything. The scan saves what it fetches.
 	return rows;
 }
+
+// WHO A SCAN STILL OWES A PROFILE FETCH, in roster order.
+//
+// Worked out fresh on every call from the held roster and the current
+// preferences, rather than frozen into the snapshot when the scan started. That
+// matters for one case that would otherwise look broken: un-skip a rank, and
+// those members become people the page says it has not looked up -- so the
+// to-do count has to agree, or the button offers nothing to do above a list of
+// rows saying "not looked up yet".
+//
+// The mailbox is consulted through the scratch note rather than read, because
+// this is called on every page load and the whole point is that a page load
+// costs no requests beyond the one mailbox read carePlan already does. Being
+// wrong here costs a few wasted profile fetches and nothing else.
+int [int] careScanQueue() {
+	int mine = my_id().to_int();
+	boolean [string] skip = careSkipRanks();
+
+	int [int] queue;
+	foreach i, m in careHeldRoster() {
+		if (m.who == mine) continue;
+		if (skip contains m.rank.to_lower_case()) continue;
+		if (m.inactive) continue;
+		if (careScratchSaysSent(m.who)) continue;
+		if (!careLoginNeeded(m.who)) continue;
+		queue[count(queue)] = m.who;
+	}
+	return queue;
+}
+
+int careScanTodo() { return count(careScanQueue()); }
 
 // Every rank on the roster and how many hold it, so the page can show what
 // there is to skip. Without this the setting is unusable without going and
@@ -574,9 +958,16 @@ care_problem [int] carePackageProblems() {
 		note("Could not read your sent mail, so there is no telling who has already"
 			+ " had a package. KoLmafia may have been busy; reload the page.", true);
 	}
+	// STILL FATAL, BUT NO LONGER AN ERROR. There is nobody to send to without a
+	// roster, so a send must still be refused -- but the reason changed when
+	// the roster stopped being fetched per page load: an empty one used to mean
+	// the request had failed, and now means no scan has run yet, which is what
+	// a fresh install looks like. Telling somebody KoLmafia was busy when they
+	// have simply not pressed the button yet sends them to look for a fault
+	// that is not there.
 	if (!careRosterRead) {
-		note("Could not read the clan roster. KoLmafia may have been busy;"
-			+ " reload the page.", true);
+		note("No clan roster is held yet, so there is nobody to send to."
+			+ " Press <b>Look up clan members</b>.", true);
 	}
 
 	string list = carePackage();

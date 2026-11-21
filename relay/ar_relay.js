@@ -43,57 +43,19 @@
 		note.className = kind || '';
 	}
 
-	function ask(url, params, then, always) {
-		var form = 'pwd=' + encodeURIComponent(arPwd);
-		for (var key in params) {
-			if (!params.hasOwnProperty(key)) continue;
-			form += '&' + encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
-		}
-
-		var xhr = new XMLHttpRequest();
-		// POST throughout, including the reads: a GET of a relay script is a
-		// thing a browser may repeat on its own, and one of these restocks.
-		xhr.open('POST', url, true);
-		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-		xhr.onreadystatechange = function () {
-			if (xhr.readyState !== 4) return;
-
-			// KoLmafia answers a stale password hash with an empty 401 before
-			// the script runs at all, so there is no {ok:false} to read.
-			// `always` runs down every path, so a caller that disabled a
-			// button can put it back whether the answer was yes, no or
-			// nothing at all.
-			if (xhr.status === 401) {
-				say('This page is out of date. Reload it.', 'err');
-				if (always) always();
-				return;
-			}
-			if (xhr.status !== 200) {
-				say('KoLmafia did not answer (' + xhr.status + ').', 'err');
-				if (always) always();
-				return;
-			}
-
-			var answer;
-			try {
-				answer = JSON.parse(xhr.responseText);
-			} catch (e) {
-				// An ASH script that will not compile is served as a bare 404,
-				// and one that aborts halfway leaves a part-written answer.
-				say('KoLmafia answered with something that is not an answer.', 'err');
-				if (always) always();
-				return;
-			}
-			if (!answer.ok) {
-				say(answer.error || 'Refused.', 'err');
-				if (always) always();
-				return;
-			}
-			then(answer);
-			if (always) always();
-		};
-		xhr.send(form);
-	}
+	// The XHR itself, and the four ways an endpoint can fail to answer, live in
+	// ar_ask.js -- which the Care Packages page loads too, and which
+	// relay_Anti_Raffle.ash loads immediately before this file. What stays
+	// here is this page's half of it: which hash to send, and where a message
+	// goes.
+	//
+	// GUARDED, BECAUSE A HALF-INSTALL IS A REAL STATE. These two files ship
+	// together and the page emits both tags, but copying one file into the
+	// relay folder by hand to try a change out is how this gets used -- and
+	// window.arAsk.make() on a page without ar_ask.js throws here, at load,
+	// which kills the whole application instead of one request. start() says
+	// so in the note rather than leaving a blank page.
+	var ask = window.arAsk ? window.arAsk.make(arPwd, say) : null;
 
 	// --- Small builders ---------------------------------------------------
 
@@ -637,6 +599,14 @@
 	}
 
 	function start() {
+		// Nothing on this page works without an endpoint to ask, so say which
+		// file is missing rather than drawing tabs that do nothing.
+		if (!ask) {
+			say('ar_ask.js did not load, so this page cannot reach KoLmafia.'
+				+ ' Reinstall the script, or reload.', 'err');
+			return;
+		}
+
 		var tabs = document.querySelectorAll('.ar-tab');
 		for (var i = 0; i < tabs.length; i++) {
 			tabs[i].onclick = function () { show(this.getAttribute('data-tab')); };

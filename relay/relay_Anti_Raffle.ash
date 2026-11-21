@@ -79,6 +79,12 @@ void main() {
 
 	out.append("</div>\n");
 
+	// ar_ask.js FIRST, and as ordered plain tags: ar_relay.js reads
+	// window.arAsk while it loads, so loading them the other way round -- or
+	// either of them async -- would leave the page with no way to reach an
+	// endpoint and no error saying why. See ar_ask.js for why it is its own
+	// file now (the Care Packages page needs the same four failure paths).
+	out.append(arScript("ar_ask.js"));
 	out.append(arScript("ar_relay.js"));
 	out.append("</body></html>\n");
 
