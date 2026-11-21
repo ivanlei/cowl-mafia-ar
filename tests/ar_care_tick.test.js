@@ -110,6 +110,44 @@ ok('a nonsense unit cost is treated as none',
 ok('and a nonsense count is treated as none',
 	care.careSendTotals(-4, 250, 1000), { count: 0, meat: 0, boxes: 0 });
 
+/* ---- careSendState: whether the send button lights, and why not ---- */
+
+// COwliCK's three conditions, 2026-11-21: "at least one recipient must be
+// selected / at least 1 item or 1 meat must be in the package / the package
+// has to have a description."
+ok('all three met', care.careSendState(190, true, true), { on: true, why: '' });
+ok('one recipient is enough', care.careSendState(1, true, true), { on: true, why: '' });
+
+// THE REASON IS THE POINT, not the boolean. The three conditions live at
+// opposite ends of a long page -- the ticks at the bottom, the package and
+// the note at the top -- so a button that is merely dead tells you nothing
+// about which of them to go and fix.
+ok('nobody ticked', care.careSendState(0, true, true).on, false);
+ok('and it says so', care.careSendState(0, true, true).why, 'Tick somebody to send to.');
+
+ok('an empty package', care.careSendState(190, false, true).on, false);
+ok('and it says so', care.careSendState(190, false, true).why,
+	'Put an item or some Meat in the package first.');
+
+ok('no note', care.careSendState(190, true, false).on, false);
+ok('and it says so', care.careSendState(190, true, false).why, 'The package needs a note.');
+
+// ONE REASON AT A TIME, in the order you would fix them: being told to tick
+// somebody while the package is still empty is advice about the wrong end.
+ok('the package comes before the ticks',
+	care.careSendState(0, false, true).why, 'Put an item or some Meat in the package first.');
+ok('and before the note',
+	care.careSendState(0, false, false).why, 'Put an item or some Meat in the package first.');
+ok('the note comes before the ticks',
+	care.careSendState(0, true, false).why, 'The package needs a note.');
+
+/* ---- careSendLabel ---- */
+
+ok('the button counts the recipients', care.careSendLabel(190), 'Send 190 Packages');
+ok('one is singular', care.careSendLabel(1), 'Send 1 Package');
+// Shown while the button is disabled, so it still has to read as English.
+ok('none is plural', care.careSendLabel(0), 'Send 0 Packages');
+
 if (failures > 0) {
 	console.log(failures + ' failure(s)');
 	process.exit(1);

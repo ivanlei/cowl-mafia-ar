@@ -484,3 +484,57 @@ a {
 .care-stale {
 	color: var(--care-warn);
 }
+
+/* The send.
+ *
+ * THE LOUDEST CONTROL ON THE PAGE, and deliberately: it is the only one that
+ * does something to other people, and it is sitting directly under the
+ * editor for what it does to them. Everything else here is a link, a
+ * checkbox or a text box. */
+.care-sendline {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	justify-content: center;
+	margin: 12px 0 2px;
+}
+
+.care-sendline button {
+	background: var(--care-button);
+	border: 1px solid var(--care-rule);
+	border-radius: 4px;
+	color: var(--care-ink);
+	font: inherit;
+	font-weight: bold;
+	min-height: 32px;
+	padding: 5px 16px;
+}
+
+.care-sendline button:not(:disabled) {
+	cursor: pointer;
+}
+
+/* A DISABLED SEND HAS TO LOOK DISABLED, and the reason beside it says which
+ * of the three things is missing -- the ticks are at the far end of a long
+ * page from the package, so "why not" is not answerable by looking. */
+.care-sendline button:disabled {
+	color: var(--care-quiet);
+	cursor: default;
+	opacity: 0.6;
+}
+
+/* ARMED: the first press turned it into a question. It has to stop looking
+ * like the button you just pressed, or a second press is a reflex rather
+ * than an answer. */
+.care-armed {
+	background: var(--care-warn) !important;
+	border-color: var(--care-warn) !important;
+	color: light-dark(#fff, #1a1004) !important;
+}
+
+.care-sendline .care-said {
+	display: inline;
+	min-height: 0;
+	text-align: left;
+}

@@ -93,40 +93,6 @@ void main() {
 	checkString("roster: the escaped title is kept as KoL wrote it",
 		byId[103].title, "Girlypop &lt;3");
 
-	/* ---- the skipped-rank list ---- */
-
-	// Reads a preference, so it is saved and put back: these tests run against
-	// a live character and must not leave its settings changed.
-	string savedSkip = get_property(CARE_SKIP);
-
-	set_property(CARE_SKIP, "");
-	checkInt("skip: an empty setting skips nothing", count(careSkipRanks()), 0);
-
-	set_property(CARE_SKIP, "Recruit, Bot");
-	boolean [string] skip = careSkipRanks();
-	checkInt("skip: two ranks read from a comma list", count(skip), 2);
-	check("skip: a rank matches", skip contains "recruit");
-	check("skip: the space after the comma is trimmed", skip contains "bot");
-
-	set_property(CARE_SKIP, "  rECRUIT  ");
-	skip = careSkipRanks();
-	check("skip: case is ignored", skip contains "recruit");
-
-	// THE TRAP. A clan can have both "Member" and "Senior Member" as separate
-	// ranks, so a skip list matched as a substring would take members nobody
-	// asked to exclude -- and silently, since the page would just show a
-	// shorter list.
-	set_property(CARE_SKIP, "Member");
-	skip = careSkipRanks();
-	check("skip: the named rank matches", skip contains "member");
-	check("skip: a rank CONTAINING it does not",
-		!(skip contains "senior member"));
-	check("skip: and the roster has such a rank to be wrong about",
-		byId contains 105 && byId[105].rank == "Senior Member");
-
-	set_property(CARE_SKIP, savedSkip);
-	checkString("skip: the setting was put back", get_property(CARE_SKIP), savedSkip);
-
 	/* ---- a profile's last login ---- */
 
 	string profile = fixture("ar_care_profile.html");
@@ -629,7 +595,6 @@ void main() {
 	check("settable: the Meat", settable contains CARE_MEAT);
 	// Shown by the Config box and not edited there, which is what was asked
 	// for: the roster's own rank list is how you find out how one is spelled.
-	check("settable: and NOT the skipped ranks", !(settable contains CARE_SKIP));
 
 	checkString("days: a number is fine", careBadValue(CARE_DAYS, "14"), "");
 	check("days: zero is not", careBadValue(CARE_DAYS, "0") != "");
@@ -788,15 +753,14 @@ void main() {
 	check("tick: the eligible are tickable", careTickable(CARE_WOULD));
 	check("tick: and start ticked", careTickedByDefault(CARE_WOULD));
 
-	// YOURS TO OVERRULE: every one of these four is this page's own opinion or
-	// a gap in what it knows, and you may know better.
+	// YOURS TO OVERRULE: every one of these is this page's own opinion or a
+	// gap in what it knows, and you may know better.
 	check("tick: not logged in lately is yours to tick", careTickable(CARE_QUIET));
-	check("tick: a skipped rank is yours to tick", careTickable(CARE_SKIPPED));
 	check("tick: an unreadable profile is yours to tick", careTickable(CARE_UNKNOWN));
 	check("tick: one not looked up yet is yours to tick", careTickable(CARE_PENDING));
-	check("tick: none of the four starts ticked",
-		!careTickedByDefault(CARE_QUIET) && !careTickedByDefault(CARE_SKIPPED)
-		&& !careTickedByDefault(CARE_UNKNOWN) && !careTickedByDefault(CARE_PENDING));
+	check("tick: none of the three starts ticked",
+		!careTickedByDefault(CARE_QUIET) && !careTickedByDefault(CARE_UNKNOWN)
+		&& !careTickedByDefault(CARE_PENDING));
 
 	// NOT OPINIONS, so no box is drawn at all. Ticking "already had one" is a
 	// second package to somebody who has had theirs, which is the exact
@@ -818,11 +782,10 @@ void main() {
 	everyVerdict[1] = CARE_HAD;
 	everyVerdict[2] = CARE_QUIET;
 	everyVerdict[3] = CARE_INACTIVE;
-	everyVerdict[4] = CARE_SKIPPED;
-	everyVerdict[5] = CARE_PENDING;
-	everyVerdict[6] = CARE_UNKNOWN;
-	everyVerdict[7] = CARE_SELF;
-	everyVerdict[8] = CARE_ASTRAL;
+	everyVerdict[4] = CARE_PENDING;
+	everyVerdict[5] = CARE_UNKNOWN;
+	everyVerdict[6] = CARE_SELF;
+	everyVerdict[7] = CARE_ASTRAL;
 	foreach i, verdict in everyVerdict {
 		check("verdict: " + verdict + " has a word that is not its key",
 			careVerdictLabel(verdict) != verdict && careVerdictLabel(verdict) != "");

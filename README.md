@@ -118,12 +118,21 @@ Tuesday. Shorten the window if that matters more to you than the requests do.
 two requests, because who has already had one is the answer whose being stale
 would cost somebody a second package.
 
-**It does not send anything yet.** Not as a promise: there is no send endpoint
-in the repository and no form on the page. That half comes later.
+**It sends.** The button at the foot of the Care Package box mails everybody
+ticked, a few at a time, with a progress line and a Stop. It will not light
+until there is something in the package, a note on it, and at least one
+person ticked — and it takes two presses: the first arms it and says what the
+second will do, because KoL has no unsend.
 
-**The page is three KoL section boxes** — Config, Package and Clan Members —
-which fold when you tap the bar. Every control on them saves itself as you
-change it; there is no Save button anywhere.
+Each send is KoLmafia's own `csend`, which tries a plain kmail and falls back
+to a gift box when KoL refuses one — which is what happens for a recipient in
+Hardcore or Ronin. Who has already had one is read out of your Outbox before
+each batch, so a send stopped anywhere resumes without sending anybody a
+second package.
+
+**The page is two KoL section boxes** — Care Package and Clan Members — which
+fold when you tap the bar. Every control on them saves itself as you change
+it; there is no Save button anywhere.
 
 **Package is shaped like KoL's own kmail form**: a two-character quantity, the
 item beside it, a bold `+` to add another row, a Send Meat box and the note as
@@ -136,15 +145,12 @@ way KoL's own dropdown does — but it only suggests, so you can name something
 you mean to buy before you send, and it is checked against the real item
 database either way.
 
-**Config is who gets one**: how recently counts as active, which places a
-package may be packed from, and the clan ranks to skip. The ranks are a
-readout, still set from the gCLI; the rank list at the foot of Clan Members is
-how you find out how one is spelled.
+The top of the same box is who gets one: how recently counts as active, and
+which places a package may be packed from.
 
 **Each clan member has a Send tick.** It starts ticked for everyone who would
 get a package. Somebody ruled out by a judgement — not logged in lately, a
-skipped rank, a profile that would not parse, nobody who has looked yet —
-starts unticked but can be ticked anyway, with the reason shown beside the
+profile that would not parse, nobody who has looked yet — starts unticked but can be ticked anyway, with the reason shown beside the
 box. Somebody who has already had one, an account KoL has marked inactive, and
 you get no box at all: those are not opinions to overrule.
 
@@ -173,7 +179,6 @@ Open it from the relay browser's Scripts menu, as "Care Packages".
 | `arCareMeat` | `0` | Meat to include as well |
 | `arCareSources` | `inventory,closet,display` | where a package may be packed from |
 | `arCareNote` | a short default | the message that goes with one |
-| `arCareSkipRanks` | empty | clan ranks not to send to |
 | `arCareHoldDays` | `7` | how long a look-up's roster and last logins are kept |
 | `arCareScanBatch` | `5` | profiles fetched per request during a look-up |
 | `arCareScanPause` | `1000` | ms between batches — with the batch, about three a second |
@@ -205,10 +210,6 @@ part of your clan and not the rest. And **if it cannot read your sent mail it
 will not offer to send at all**, because an unread mailbox looks exactly like
 "nobody has had one", and that is the one direction this must not fail in.
 
-`arCareSkipRanks` is matched whole and case-insensitively, not as a substring:
-a clan with both "Member" and "Senior Member" as ranks would otherwise have the
-second quietly taken away with the first. The page lists every rank it found
-with a count, so you can see how one is spelled.
 
 
 ## Settings

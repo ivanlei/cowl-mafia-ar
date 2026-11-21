@@ -94,7 +94,6 @@ string CARE_PACKAGE = "arCarePackage";
 string CARE_MEAT    = "arCareMeat";
 string CARE_SOURCES  = "arCareSources";
 string CARE_NOTE    = "arCareNote";
-string CARE_SKIP    = "arCareSkipRanks";
 string CARE_HOLD    = "arCareHoldDays";
 string CARE_BATCH   = "arCareScanBatch";
 string CARE_PAUSE   = "arCareScanPause";
@@ -392,22 +391,6 @@ string careNote() {
 	return s == "" ? CARE_NOTE_DEFAULT : s;
 }
 
-// The ranks not to send to, as a set keyed by the lower-cased rank.
-//
-// MATCHED WHOLE AND NOT AS A SUBSTRING, which matters on a real roster: a clan
-// that has both "Member" and "Senior Member" as ranks would have the second
-// quietly taken away with the first. Case is ignored and surrounding spaces are
-// trimmed, because the list is typed by hand and "Recruit, Bot" should work.
-boolean [string] careSkipRanks() {
-	boolean [string] skip;
-	foreach i, part in split_string(get_property(CARE_SKIP), ",") {
-		string rank = part;
-		while (rank.starts_with(" ")) rank = rank.substring(1, rank.length());
-		while (rank.ends_with(" ")) rank = rank.substring(0, rank.length() - 1);
-		if (rank != "") skip[rank.to_lower_case()] = true;
-	}
-	return skip;
-}
 
 /*****************************************************
 	What the Config box is allowed to change
@@ -426,8 +409,6 @@ boolean [string] careSkipRanks() {
 // parsed against real item names and refused by name when one is wrong --
 // which is why careBadValue() below is longer for it than for the rest.
 //
-// arCareSkipRanks is still NOT here: the Config box shows it and does not
-// edit it, which is what was asked for.
 boolean [string] careSettable() {
 	boolean [string] allowed;
 	allowed[CARE_DAYS] = true;
@@ -1191,7 +1172,6 @@ string CARE_WOULD    = "would";     // active, no package yet
 string CARE_HAD      = "had";       // already in your sent mail
 string CARE_QUIET    = "quiet";     // has not logged in within N days
 string CARE_INACTIVE = "inactive";  // KoL marks the account inactive
-string CARE_SKIPPED  = "skipped";   // their rank is in careSkipRanks
 string CARE_PENDING  = "pending";   // not looked up yet: no scan has reached them
 string CARE_UNKNOWN  = "unknown";   // looked up, and the profile would not parse
 string CARE_SELF     = "self";      // you
@@ -1217,7 +1197,6 @@ string careVerdictLabel(string verdict) {
 	if (verdict == CARE_HAD)      return "already had one";
 	if (verdict == CARE_QUIET)    return "not logged in lately";
 	if (verdict == CARE_INACTIVE) return "account inactive";
-	if (verdict == CARE_SKIPPED)  return "rank skipped";
 	if (verdict == CARE_PENDING)  return "not looked up yet";
 	if (verdict == CARE_UNKNOWN)  return "last login unreadable";
 	if (verdict == CARE_SELF)     return "you";
@@ -1231,9 +1210,9 @@ string careVerdictLabel(string verdict) {
 //
 // The split is between a reason that is an OPINION and a reason that is a
 // FACT. "Not logged in lately" is this page's own arithmetic against a number
-// you chose, "rank skipped" is a list you typed, "unreadable" and "not looked
-// up yet" are both just missing information -- you may know better than any of
-// them, so they unfold into an empty tick you can set.
+// you chose, and "unreadable" and "not looked up yet" are both just missing
+// information -- you may know better than any of them, so they unfold into an
+// empty tick you can set.
 //
 // IN VALHALLA IS ONE OF THOSE, by COwliCK's decision (2026-11-21): "disable
 // send to them but with the checkbox we've added they can be sent to." There
@@ -1284,7 +1263,6 @@ care_row [int] carePlan() {
 	careSentRead = sent.read;
 	int mine = my_id().to_int();
 	int window = careDays();
-	boolean [string] skip = careSkipRanks();
 
 	care_member [int] roster = careHeldRoster();
 	careRosterRead = count(roster) > 0;
@@ -1298,14 +1276,8 @@ care_row [int] carePlan() {
 		// Ordered cheapest and most decisive first: everything down to the
 		// inactive check costs no request at all, so only the members who might
 		// actually get a package are ever looked up.
-		//
-		// A skipped rank comes before "already had one" deliberately. Both are
-		// free, but the question this page answers is who would get one NOW,
-		// and a rank you have excluded is excluded whatever their history.
 		if (m.who == mine) {
 			r.verdict = CARE_SELF;
-		} else if (skip contains m.rank.to_lower_case()) {
-			r.verdict = CARE_SKIPPED;
 		} else if (sent.who contains m.who) {
 			// Both of these are decided before any profile is fetched, so
 			// somebody who already has one -- or whose account KoL has already
@@ -1350,12 +1322,9 @@ care_row [int] carePlan() {
 // wrong here costs a few wasted profile fetches and nothing else.
 int [int] careScanQueue() {
 	int mine = my_id().to_int();
-	boolean [string] skip = careSkipRanks();
-
 	int [int] queue;
 	foreach i, m in careHeldRoster() {
 		if (m.who == mine) continue;
-		if (skip contains m.rank.to_lower_case()) continue;
 		if (m.inactive) continue;
 		if (careScratchSaysSent(m.who)) continue;
 		if (!careLoginNeeded(m.who)) continue;
@@ -1366,17 +1335,6 @@ int [int] careScanQueue() {
 
 int careScanTodo() { return count(careScanQueue()); }
 
-// Every rank on the roster and how many hold it, so the page can show what
-// there is to skip. Without this the setting is unusable without going and
-// reading three pages of roster to find out how a rank is spelled.
-int [string] careRankCounts(care_row [int] rows) {
-	int [string] counts;
-	foreach i, r in rows {
-		string rank = r.member.rank == "" ? "(no rank)" : r.member.rank;
-		counts[rank] = (counts contains rank ? counts[rank] : 0) + 1;
-	}
-	return counts;
-}
 
 int careCount(care_row [int] rows, string verdict) {
 	int n = 0;

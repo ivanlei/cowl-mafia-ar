@@ -10,17 +10,18 @@
 // sent mail rather than a list of its own, because a list of its own can
 // disagree with the game.
 //
-// THIS PAGE SENDS NOTHING. There is no send endpoint in this repository at
-// all, so there is nothing here that could. The Send column is the selection
-// that the sending will one day read; the sending gets its own file and its
-// own look at.
+// THIS PAGE SENDS, as of 2026-11-21, which it spent its whole life until now
+// saying it did not. The Send column is the selection and the button at the
+// foot of the Care Package box is the send; ar_care_send.ash does it, a few
+// recipients per request, and will not start without somebody ticked,
+// something in the package and a note. It takes two presses.
 //
 // ar_care.ash does the reading and the deciding; this file only draws.
 //
-// TWO KoL SECTION BOXES, Config and Clan Members (ar_box.ash). KoL heads every
-// section of every page the same way and a page of ours that invents its own
-// heading does not look like the game it is part of. They fold, which is what
-// a 239-row table wants on an iPad.
+// TWO KoL SECTION BOXES, Care Package and Clan Members (ar_box.ash). KoL
+// heads every section of every page the same way and a page of ours that
+// invents its own heading does not look like the game it is part of. They
+// fold, which is what a 239-row table wants on an iPad.
 //
 // SERVER-RENDERED, WITH CONTROLS. Everything on the page is written here, in
 // ASH -- every verdict, every count, the price of a send -- and ar_care.js
@@ -143,8 +144,7 @@ void careRow(buffer out, care_row r) {
 		if (r.days == 0)      out.append(" <span class='care-ago'>(today)</span>");
 		else if (r.days > 0)  out.append(" <span class='care-ago'>(" + r.days
 			+ (r.days == 1 ? " day ago)" : " days ago)") + "</span>");
-	} else if (r.verdict == CARE_HAD || r.verdict == CARE_SKIPPED
-			|| r.verdict == CARE_INACTIVE) {
+	} else if (r.verdict == CARE_HAD || r.verdict == CARE_INACTIVE) {
 		// Deliberately not fetched: a member ruled out before the profile
 		// step costs no request, so there is no last login to show and
 		// none was wanted.
@@ -160,7 +160,12 @@ void careRow(buffer out, care_row r) {
 		// and careTickedByDefault are in ar_care.ash and are the one place the
 		// rule is written; ar_care.js counts what is checked in the document
 		// and never works out who may be.
-		out.append("<input type='checkbox' class='care-tick'"
+		// data-who, because a tick is now a recipient: the send names ids,
+		// so the browser has to be able to say which rows are ticked. The id
+		// is in the profile link beside it too, but reading a recipient out
+		// of an href is the kind of thing that breaks when the link changes.
+		out.append("<input type='checkbox' class='care-tick' data-who='"
+			+ r.member.who + "'"
 			+ (careTickedByDefault(r.verdict) ? " checked" : "") + ">");
 	}
 	// The reason, except for the one verdict that needs none: a ticked box in
@@ -242,19 +247,18 @@ void main() {
 
 	/* ---- what is configured ---- */
 
-	// THREE OF THESE FIVE ROWS ARE NOW CONTROLS, which is the other half of
-	// what COwliCK asked for on 2026-11-21 and the first time this page writes
-	// anything. Each one saves itself on change against ar_care_prefs.ash --
-	// no Save button, the way the anti-raffle's settings already work -- and
-	// the two that change what the table says reload the page afterwards,
+	// ONE BOX, "Care Package", with what was Config at the top of it in the
+	// order it was already in (COwliCK, 2026-11-21). The two halves answer
+	// different questions -- who counts as active and where a package is
+	// packed from, then what is in it -- but they are one decision and were
+	// never worth two bars.
+	//
+	// EVERY CONTROL SAVES ITSELF on change against ar_care_prefs.ash, with no
+	// Save button, the way the anti-raffle's settings already work. The ones
+	// that change what the member table says reload the page afterwards,
 	// because every verdict in it is decided server-side and a second
 	// renderer in JavaScript is the thing this page is built to avoid.
-	//
-	// The other two are read-only on purpose. The package is an item list that
-	// wants parsing against real item names, which is its own job; the skipped
-	// ranks are still typed into the gCLI, and the roster's own rank list at
-	// the foot of the next box is how you find out how one is spelled.
-	out.append(arBoxStart("Config"));
+	out.append(arBoxStart("Care Package"));
 
 	out.append("<table class='care-setup'>");
 
@@ -273,15 +277,8 @@ void main() {
 	}
 	out.append("</td></tr>");
 
-	out.append("<tr><td class='care-label'>Ranks Skipped</td><td>");
-	out.append(get_property(CARE_SKIP) == ""
-		? "<i>none</i>" : careHtml(get_property(CARE_SKIP)));
-	out.append("</td></tr>");
-
 	out.append("</table>\n");
 	out.append("<div id='care-config-said' class='care-said'></div>\n");
-
-	out.append(arBoxEnd() + "\n");
 
 	/* ---- what is in a package ---- */
 
@@ -297,7 +294,6 @@ void main() {
 	// no press at all and the + is for the second item onwards, the way KoL's
 	// is. An empty row is not in the preference, so a reload brings back
 	// exactly the items that are set and one more blank.
-	out.append(arBoxStart("Package"));
 
 	// KoL'S OWN LAYOUT, in its own order: the whole form is inside a
 	// <center>, the message comes first under a plain "Message:" on a line of
@@ -345,6 +341,111 @@ void main() {
 	out.append("</div>");
 
 	out.append("<div id='care-package-said' class='care-said'></div>");
+
+	/* ---- what would happen ---- */
+
+	// WHAT A SEND WOULD COST, AND IT COUNTS THE TICKS. Every number in this
+	// sentence is the number of recipients times something, and since the
+	// Send column arrived that number is whatever is ticked in the browser --
+	// which the server cannot know. COwliCK, 2026-11-21: "i unselected most
+	// people - only 3 are selected - but the text claims 190 are selected and
+	// miscalculates how much items/meat will be sent."
+	//
+	// So the SENTENCE is still written here and the NUMBERS in it are holes
+	// ar_care.js fills from the live tick count. Which clauses appear depends
+	// on the package and the Meat, not on the ticks, so that stays here too;
+	// what crosses to the browser is three multiplications and the unit
+	// costs they multiply, carried on the <p> itself.
+	//
+	// The alternative was composing the whole sentence in JavaScript, which
+	// would put the package's own words, the gift-box caveat and the
+	// Meat-or-no-Meat branching in a second renderer -- the exact thing the
+	// rest of this page is arranged to avoid.
+	int would = careCount(rows, CARE_WOULD);
+	int CARE_GIFT_BOX = 1000;
+	out.append("<p class='care-summary' id='care-summary'"
+		+ " data-meat='" + careMeat() + "' data-box='" + CARE_GIFT_BOX + "'>");
+	if (!careRosterRead) {
+		// Never "0 of 0 clan members", which is what an empty response read as
+		// before the roster could fail out loud. The reason is different now
+		// that the roster is held rather than fetched per load: there is
+		// nothing to read because nothing has been looked up, which is the
+		// state a fresh install is in and is not an error.
+		out.append("<b>No clan roster is held yet.</b> Press <b>Look up clan members</b> below.");
+	} else if (!careSendable(problems)) {
+		out.append("<b>Nothing to send yet.</b> " + would + " of "
+			+ count(rows) + " clan members would be eligible.");
+	} else {
+		// Each hole is written with the value the ticks start at, so the
+		// sentence is right before a line of script has run and right after.
+		out.append("<b><span class='care-n'>" + would + "</span></b> of "
+			+ count(rows) + " clan members would get a package");
+		// What a bulk send actually costs, because most of a clan being
+		// eligible is not obvious from the package on its own. The Meat is "up
+		// to": a gift box is only bought for a recipient a plain kmail is
+		// refused for, and whether someone is in Hardcore or Ronin is not
+		// something this can see.
+		if (careMeat() > 0) {
+			out.append(" &mdash; <span class='care-meat-all'>"
+				+ (careMeat() * would) + "</span> Meat in all");
+		}
+		if (carePackage() != "") {
+			out.append(careMeat() > 0 ? ", plus " : " &mdash; ");
+			// carePackageText(), not carePackage(): the stored form can hold a
+			// bracketed id for an item whose name has a comma in it, and
+			// "190x (2 soda water, 1 [5590])" is not a sentence.
+			out.append("<span class='care-n'>" + would + "</span>&times; ("
+				+ careHtml(carePackageText(carePackage())) + ")");
+		}
+		out.append(", and up to <span class='care-box-all'>"
+			+ (would * CARE_GIFT_BOX)
+			+ "</span> Meat of gift boxes for anyone in Hardcore or Ronin.");
+	}
+	out.append("</p>\n");
+
+	/* ---- the send ---- */
+
+	// THE FIRST THING IN THIS REPOSITORY THAT SENDS ANYTHING. Until now the
+	// page's own header said there was no send endpoint beside it and nothing
+	// here that could; ar_care_send.ash is that endpoint and this is its
+	// button. COwliCK asked for it, 2026-11-21: "add a 'Send # Packages'
+	// button below that which sends to all selected people."
+	//
+	// WHAT THE BUTTON NEEDS BEFORE IT WILL LIGHT, his three conditions:
+	// somebody ticked, something in the package (an item or some Meat), and a
+	// note. The first is counted in the browser, so the button starts
+	// disabled and ar_care.js turns it on -- which also means a page whose
+	// script did not load cannot send, and that is the right way round.
+	//
+	// The other two are known here, and are passed as attributes rather than
+	// worked out again in JavaScript: whether a package holds anything is
+	// carePackageParts() and careMeat(), and neither belongs in two places.
+	//
+	// TWO PRESSES, NOT ONE. COwliCK's call when asked: the first press arms
+	// the button and the second sends. KoL has no unsend and this mails a
+	// couple of hundred people with real items in it, so one stray tap on a
+	// button sitting directly under the package editor is not a thing to
+	// leave possible. It is done in the page rather than with confirm(),
+	// which in a WKWebView with no dialog delegate returns false at once and
+	// draws nothing -- the button would simply never fire on the iPad this
+	// is read on.
+	boolean hasStuff = count(carePackageParts(carePackage())) > 0 || careMeat() > 0;
+	boolean hasNote = careNote() != "";
+	out.append("<div class='care-sendline'>");
+	out.append("<button id='care-send' type='button' disabled"
+		+ " data-stuff='" + (hasStuff ? "1" : "0") + "'"
+		+ " data-note='" + (hasNote ? "1" : "0") + "'>");
+	out.append("Send 0 Packages");
+	out.append("</button>");
+	// Hidden until a send is running, the same way the look-up's Stop is: a
+	// Stop on screen with nothing to stop is a button that looks pressable
+	// and is not.
+	out.append("<button id='care-send-stop' type='button' hidden>Stop</button>");
+	out.append("<span id='care-send-why' class='care-said'></span>");
+	out.append("</div>\n");
+
+	out.append("<div id='care-send-said' class='care-said'></div>\n");
+
 	out.append("</div>\n");
 
 	out.append(arBoxEnd() + "\n");
@@ -417,66 +518,6 @@ void main() {
 	}
 	out.append("</p>\n");
 
-	/* ---- what would happen ---- */
-
-	// WHAT A SEND WOULD COST, AND IT COUNTS THE TICKS. Every number in this
-	// sentence is the number of recipients times something, and since the
-	// Send column arrived that number is whatever is ticked in the browser --
-	// which the server cannot know. COwliCK, 2026-11-21: "i unselected most
-	// people - only 3 are selected - but the text claims 190 are selected and
-	// miscalculates how much items/meat will be sent."
-	//
-	// So the SENTENCE is still written here and the NUMBERS in it are holes
-	// ar_care.js fills from the live tick count. Which clauses appear depends
-	// on the package and the Meat, not on the ticks, so that stays here too;
-	// what crosses to the browser is three multiplications and the unit
-	// costs they multiply, carried on the <p> itself.
-	//
-	// The alternative was composing the whole sentence in JavaScript, which
-	// would put the package's own words, the gift-box caveat and the
-	// Meat-or-no-Meat branching in a second renderer -- the exact thing the
-	// rest of this page is arranged to avoid.
-	int would = careCount(rows, CARE_WOULD);
-	int CARE_GIFT_BOX = 1000;
-	out.append("<p class='care-summary' id='care-summary'"
-		+ " data-meat='" + careMeat() + "' data-box='" + CARE_GIFT_BOX + "'>");
-	if (!careRosterRead) {
-		// Never "0 of 0 clan members", which is what an empty response read as
-		// before the roster could fail out loud. The reason is different now
-		// that the roster is held rather than fetched per load: there is
-		// nothing to read because nothing has been looked up, which is the
-		// state a fresh install is in and is not an error.
-		out.append("<b>No clan roster is held yet.</b> Press the button above.");
-	} else if (!careSendable(problems)) {
-		out.append("<b>Nothing to send yet.</b> " + would + " of "
-			+ count(rows) + " clan members would be eligible.");
-	} else {
-		// Each hole is written with the value the ticks start at, so the
-		// sentence is right before a line of script has run and right after.
-		out.append("<b><span class='care-n'>" + would + "</span></b> of "
-			+ count(rows) + " clan members would get a package");
-		// What a bulk send actually costs, because most of a clan being
-		// eligible is not obvious from the package on its own. The Meat is "up
-		// to": a gift box is only bought for a recipient a plain kmail is
-		// refused for, and whether someone is in Hardcore or Ronin is not
-		// something this can see.
-		if (careMeat() > 0) {
-			out.append(" &mdash; <span class='care-meat-all'>"
-				+ (careMeat() * would) + "</span> Meat in all");
-		}
-		if (carePackage() != "") {
-			out.append(careMeat() > 0 ? ", plus " : " &mdash; ");
-			// carePackageText(), not carePackage(): the stored form can hold a
-			// bracketed id for an item whose name has a comma in it, and
-			// "190x (2 soda water, 1 [5590])" is not a sentence.
-			out.append("<span class='care-n'>" + would + "</span>&times; ("
-				+ careHtml(carePackageText(carePackage())) + ")");
-		}
-		out.append(", and up to <span class='care-box-all'>"
-			+ (would * CARE_GIFT_BOX)
-			+ "</span> Meat of gift boxes for anyone in Hardcore or Ronin.");
-	}
-	out.append("</p>\n");
 
 	// WHAT IS STILL UNKNOWN, and whose answer is the button above rather than a
 	// reload. Was "this load spent its 80 profile fetches. Reload to continue",
@@ -493,10 +534,6 @@ void main() {
 		}
 		out.append(". Nothing is fetched until you press the button.</p>\n");
 	}
-
-	// NO SEND BUTTON EXISTS IN THIS VERSION. Said out loud, because a page
-	// about sending that shows a list and no button otherwise reads as broken.
-	out.append("<p class='care-note'>This page does not send anything yet.</p>\n");
 
 	/* ---- the roster ---- */
 
@@ -536,28 +573,6 @@ void main() {
 		out.append("</table>\n");
 	}
 
-	/* ---- what there is to skip ---- */
-
-	// UNDER THE TABLE, not over it. This is a reference list -- it is where
-	// you find out how a rank is spelled before typing it into the gCLI, and
-	// a skipped one is struck through so the list doubles as a readout of
-	// arCareSkipRanks -- and a reference list above the answer is a reference
-	// list in the way of it. Shown whether or not anything is skipped yet,
-	// because the spelling is the thing it is mostly consulted for.
-	if (careRosterRead) {
-		boolean [string] skipped = careSkipRanks();
-		out.append("<p class='care-ranks'><span class='care-label'>Ranks on the roster:</span> ");
-		boolean first = true;
-		foreach rank, n in careRankCounts(rows) {
-			if (!first) out.append(", ");
-			first = false;
-			boolean off = skipped contains rank.to_lower_case();
-			out.append("<span class='" + (off ? "care-rank-off" : "care-rank-on") + "'>");
-			out.append(careHtml(rank) + " (" + n + ")");
-			out.append("</span>");
-		}
-		out.append("</p>\n");
-	}
 
 	out.append(arBoxEnd() + "\n");
 

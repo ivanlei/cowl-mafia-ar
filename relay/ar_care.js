@@ -163,6 +163,31 @@
 		};
 	}
 
+	// WHETHER THE SEND BUTTON LIGHTS, and what it says when it does not.
+	// COwliCK's three conditions, 2026-11-21: "at least one recipient must be
+	// selected / at least 1 item or 1 meat must be in the package / the
+	// package has to have a description."
+	//
+	// Returning the REASON and not just a boolean is the point. A button that
+	// is simply dead tells you nothing, and the three conditions live in
+	// three different parts of a long page -- the ticks are at the bottom,
+	// the package and the note are at the top -- so the one place you are
+	// looking when you wonder why is the button itself.
+	//
+	// One reason at a time, in the order you would fix them: there is no
+	// point being told to tick somebody while the package is empty.
+	function careSendState(ticked, hasStuff, hasNote) {
+		if (!hasStuff) return { on: false, why: 'Put an item or some Meat in the package first.' };
+		if (!hasNote) return { on: false, why: 'The package needs a note.' };
+		if (ticked < 1) return { on: false, why: 'Tick somebody to send to.' };
+		return { on: true, why: '' };
+	}
+
+	// "Send 3 Packages", and the singular when it is one.
+	function careSendLabel(ticked) {
+		return 'Send ' + ticked + (ticked === 1 ? ' Package' : ' Packages');
+	}
+
 	function careTickAllTarget(states) {
 		for (var i = 0; i < states.length; i++) {
 			if (!states[i]) return true;
@@ -178,6 +203,8 @@
 			careTickedText: careTickedText,
 			careTickAllTarget: careTickAllTarget,
 			careSendTotals: careSendTotals,
+			careSendState: careSendState,
+			careSendLabel: careSendLabel,
 			PROFILE_MS: PROFILE_MS
 		};
 		return;
@@ -189,7 +216,12 @@
 	var PREFS = '/ar_care_prefs.ash';
 
 	var scanButton, stopButton, progress, said, configSaid, packageSaid, tickedLine;
-	var ask, saveInConfig, saveInPackage;
+	var sendButton, sendWhy, sendSaid, stopSendButton;
+	var ask, saveInConfig, saveInPackage, askSend;
+	var sending = false;
+	var stoppedSending = false;
+	var armed = 0;
+	var sendSize = 3;
 	var heldItems = [];
 	var running = false;
 	var stopped = false;
@@ -596,6 +628,173 @@
 		}, null);
 	}
 
+	/* ---- sending ---- */
+
+	// ARMED FOR THIS LONG after the first press, then it goes back to being
+	// an ordinary button. Long enough to mean the second press, short enough
+	// that a button left armed while you wander off does not stay a single
+	// tap away from mailing the clan.
+	var ARM_MS = 8000;
+
+	function tickedWho() {
+		var who = [];
+		var boxes = document.querySelectorAll('.care-tick');
+		for (var i = 0; i < boxes.length; i++) {
+			if (boxes[i].checked) who.push(boxes[i].getAttribute('data-who'));
+		}
+		return who;
+	}
+
+	// Everything on the page that must not move while a send is running. A
+	// package edited halfway through would send two different packages, and
+	// a tick changed would not be in the list the send is working through.
+	function freeze(on) {
+		var controls = document.querySelectorAll('#care-days, #care-note-text,'
+			+ ' #care-meat, #care-add-row, .care-place, .care-qty, .care-item,'
+			+ ' .care-tick, #care-scan, #care-tick-all');
+		for (var i = 0; i < controls.length; i++) {
+			if (controls[i].tagName === 'A') {
+				controls[i].style.pointerEvents = on ? 'none' : '';
+				controls[i].style.opacity = on ? '0.5' : '';
+			} else {
+				controls[i].disabled = on;
+			}
+		}
+	}
+
+	function paintSendButton() {
+		if (!sendButton) return;
+		if (sending) return;
+		var state = careSendState(tickedWho().length,
+			sendButton.getAttribute('data-stuff') === '1',
+			sendButton.getAttribute('data-note') === '1');
+		sendButton.disabled = !state.on;
+		sendButton.textContent = careSendLabel(tickedWho().length);
+		if (sendWhy) sendWhy.textContent = state.why;
+		// Any change to the page disarms it: the number on the button is the
+		// number you agreed to, so if it moves the agreement is stale.
+		disarm();
+	}
+
+	function disarm() {
+		if (armed) {
+			window.clearTimeout(armed);
+			armed = 0;
+		}
+		if (sendButton && !sending) sendButton.classList.remove('care-armed');
+	}
+
+	function sendSay(text, kind) {
+		if (!sendSaid) return;
+		sendSaid.textContent = text || '';
+		sendSaid.className = 'care-said ' + (kind || '');
+	}
+
+	// One batch, then the next, with the queue held here. The server decides
+	// how many a batch is and reports what happened to each name.
+	function sendBatch(queue, went, failed) {
+		if (stoppedSending || !queue.length) {
+			freeze(false);
+			sending = false;
+			sendSay('Sent ' + went + (failed ? ', ' + failed + ' refused' : '')
+				+ (stoppedSending && queue.length ? '. Stopped, ' + queue.length
+					+ ' not sent.' : '.') + ' Redrawing…', failed ? 'err' : 'done');
+			// A reload, so the table comes back with the people who have now
+			// had one moved into "already had one" -- read out of the mailbox
+			// rather than assumed from what this loop thinks it did.
+			window.location.reload();
+			return;
+		}
+
+		var take = queue.slice(0, sendSize);
+		askSend('/ar_care_send.ash', { to: take.join(',') }, function (answer) {
+			var got = answer.done || [];
+			if (answer.batch > 0) sendSize = answer.batch;
+			var names = [];
+			for (var i = 0; i < got.length; i++) {
+				if (got[i].sent) { went++; } else { failed++; names.push(got[i].name + ' (' + got[i].why + ')'); }
+			}
+			// THE SERVER SAYS WHO IT DEALT WITH, and the queue drops exactly
+			// those. Dropping `take` instead would skip anybody the server
+			// did not get to -- it stops at its own batch size, not ours.
+			queue = queue.slice(got.length || take.length);
+			sendSay('Sent ' + went + (failed ? ', ' + failed + ' refused' : '')
+				+ ', ' + queue.length + ' to go'
+				+ (names.length ? ' — ' + names.join(', ') : ''),
+				failed ? 'err' : 'busy');
+			if (sendButton) sendButton.textContent = 'Sending… ' + queue.length + ' to go';
+			window.setTimeout(function () { sendBatch(queue, went, failed); }, 400);
+		}, function () {
+			// A refusal is already on the line. Stop rather than carry on
+			// through a queue the server has just said no to.
+			freeze(false);
+			sending = false;
+			if (went) sendSay('Stopped after ' + went + ' sent. Reload to see where it got to.', 'err');
+			if (sendButton) paintSendButton();
+		});
+	}
+
+	function beginSend() {
+		var queue = tickedWho();
+		if (!queue.length) return;
+		sending = true;
+		stoppedSending = false;
+		disarm();
+		freeze(true);
+		sendButton.disabled = true;
+		sendButton.textContent = 'Sending… ' + queue.length + ' to go';
+		if (stopSendButton) stopSendButton.hidden = false;
+		sendSay('Sending…', 'busy');
+		sendBatch(queue, 0, 0);
+	}
+
+	function bindSend() {
+		sendButton = document.getElementById('care-send');
+		sendWhy = document.getElementById('care-send-why');
+		sendSaid = document.getElementById('care-send-said');
+		stopSendButton = document.getElementById('care-send-stop');
+		if (!sendButton) return;
+
+		askSend = saverFor(sendSay);
+
+		// TWO PRESSES. The first arms and says what the second will do; the
+		// second sends. COwliCK's call when asked, and the reason is that
+		// this mails a couple of hundred people irreversibly from a button
+		// sitting directly under the editor for what it mails them.
+		//
+		// Done in the page rather than with confirm(), which in a WKWebView
+		// whose host implements no dialog delegate returns false at once and
+		// draws nothing -- the button would never fire at all on the iPad
+		// this is read on.
+		sendButton.addEventListener('click', function () {
+			if (sending) return;
+			var n = tickedWho().length;
+			if (armed) {
+				beginSend();
+				return;
+			}
+			sendButton.classList.add('care-armed');
+			sendButton.textContent = 'Really send ' + n
+				+ (n === 1 ? ' package?' : ' packages?');
+			sendSay('Press again to send. There is no unsend.', 'err');
+			armed = window.setTimeout(function () {
+				armed = 0;
+				sendButton.classList.remove('care-armed');
+				sendSay('');
+				paintSendButton();
+			}, ARM_MS);
+		});
+
+		if (stopSendButton) {
+			stopSendButton.addEventListener('click', function () {
+				stoppedSending = true;
+				sendSay('Stopping after this batch…', 'busy');
+			});
+		}
+
+		paintSendButton();
+	}
+
 	/* ---- the Send ticks ---- */
 
 	// Counted off the document, never worked out again here. Which rows may be
@@ -613,6 +812,9 @@
 			if (boxes[i].checked) ticked++;
 		}
 		if (tickedLine) tickedLine.textContent = careTickedText(ticked, boxes.length);
+		// The button's label is the number of recipients and its enabled-ness
+		// is partly that number, so it moves with every tick.
+		paintSendButton();
 
 		// THE SUMMARY COUNTS THE SAME TICKS. It is the page's one claim about
 		// what a send would do, and before this it counted who was eligible
@@ -677,7 +879,8 @@
 		if (!window.arAsk) {
 			if (scanButton) scanButton.disabled = true;
 			var dead = document.querySelectorAll('#care-days, #care-note-text,'
-				+ ' #care-meat, #care-add-row, .care-place, .care-qty, .care-item');
+				+ ' #care-meat, #care-add-row, .care-place, .care-qty, .care-item,'
+				+ ' #care-send');
 			for (var i = 0; i < dead.length; i++) dead[i].disabled = true;
 			var missing = 'ar_ask.js did not load, so nothing here can be saved'
 				+ ' or looked up. Reinstall the script, or reload.';
@@ -697,6 +900,7 @@
 		bindConfig();
 		bindPackage();
 		bindTicks();
+		bindSend();
 		loadItems();
 
 		if (!scanButton) return;
