@@ -36,6 +36,7 @@ record care_sent_one {
 	int who;
 	string name;
 	boolean sent;
+	boolean had;     // refused because they already have one, which is not a failure
 	string why;      // empty when it went
 };
 
@@ -184,6 +185,7 @@ void main() {
 		care_sent_one one;
 		one.who = who;
 		one.sent = false;
+		one.had = false;
 
 		if (!(byId contains who)) {
 			one.name = "#" + who;
@@ -196,6 +198,14 @@ void main() {
 				// THE ONE THAT MATTERS. Read fresh from the Outbox at the
 				// start of this request, so a batch cannot send a second
 				// package to somebody an earlier batch already reached.
+				//
+				// SAID AS ITS OWN OUTCOME rather than left for the page to
+				// recognise by its sentence. It is not a failure and the page
+				// must not colour it as one -- which matters most when a batch
+				// is retried after a momentary error, since everybody the first
+				// attempt did reach comes back exactly like this and would
+				// otherwise be reported as refused.
+				one.had = true;
 				one.why = "already had one";
 			} else {
 				cli_execute(careSendCommand(one.name, parts, meat, careBody()));
@@ -227,6 +237,7 @@ void main() {
 		out.append("{\"who\":" + one.who);
 		out.append(",\"name\":" + arQuoted(one.name));
 		out.append(",\"sent\":" + (one.sent ? "true" : "false"));
+		out.append(",\"had\":" + (one.had ? "true" : "false"));
 		out.append(",\"why\":" + arQuoted(one.why) + "}");
 	}
 	out.append("],\"batch\":" + CARE_SEND_BATCH + "}");
