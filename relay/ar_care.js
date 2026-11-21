@@ -131,12 +131,31 @@
 		return ticked + ' of ' + tickable + ' ticked';
 	}
 
+	// What pressing "Send" in the table header should set every box to.
+	//
+	// ANY BOX STILL OFF MEANS TURN THEM ALL ON, and only a column that is
+	// already full clears. That is what makes a second press undo the first
+	// without having to remember anything: from the page's own opening state
+	// -- 190 of 218, the ones that would get a package -- the first press
+	// fills the column and the second empties it.
+	//
+	// The alternative, flipping each box, is a different control: it would
+	// turn the 190 off and the 28 on, which is not "select all" and is not
+	// anything anybody wants from a header.
+	function careTickAllTarget(states) {
+		for (var i = 0; i < states.length; i++) {
+			if (!states[i]) return true;
+		}
+		return false;
+	}
+
 	if (typeof module !== 'undefined' && module.exports) {
 		module.exports = {
 			careScanNext: careScanNext,
 			careEta: careEta,
 			careProgressText: careProgressText,
 			careTickedText: careTickedText,
+			careTickAllTarget: careTickAllTarget,
 			PROFILE_MS: PROFILE_MS
 		};
 		return;
@@ -581,6 +600,23 @@
 				if (hit && hit.classList && hit.classList.contains('care-tick')) countTicks();
 			});
 		}
+
+		var all = document.getElementById('care-tick-all');
+		if (all) {
+			all.onclick = function (event) {
+				event.preventDefault();
+				var boxes = document.querySelectorAll('.care-tick');
+				var states = [];
+				for (var i = 0; i < boxes.length; i++) states.push(boxes[i].checked);
+				var want = careTickAllTarget(states);
+				for (var j = 0; j < boxes.length; j++) boxes[j].checked = want;
+				// Setting .checked from script fires no change event, so the
+				// listener above never runs and the count would sit at
+				// whatever it said before.
+				countTicks();
+			};
+		}
+
 		countTicks();
 	}
 

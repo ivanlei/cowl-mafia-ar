@@ -493,10 +493,19 @@ void main() {
 		// written as a bare <td> stayed behind as a "Rank" column heading
 		// over nothing at all.
 		out.append("<table class='care-list'>");
+		// SEND IS A CONTROL, not just a heading: pressing it ticks every box
+		// in the column and pressing it again clears them (COwliCK,
+		// 2026-11-21). Drawn as a link because there is no hover on an iPad
+		// to discover it with, so it has to look pressable sitting still.
+		//
+		// A link rather than a <button>: it is one word in a table header,
+		// and a button there would be the loudest thing on a page whose
+		// actual button is the look-up.
 		out.append("<tr class='care-head'><td class='care-who'>Name</td>"
 			+ "<td class='care-rank'>Rank</td>"
 			+ "<td class='care-seen'>Last Login</td>"
-			+ "<td class='care-send'>Send</td></tr>");
+			+ "<td class='care-send'><a href='#' id='care-tick-all'"
+			+ " title='tick them all, or clear them'>Send</a></td></tr>");
 		careRows(out, rows);
 		out.append("</table>\n");
 	}

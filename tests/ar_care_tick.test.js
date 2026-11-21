@@ -56,6 +56,31 @@ ok('one is not special',
 ok('says nothing at all when there is nobody to tick',
 	care.careTickedText(0, 0), '');
 
+/* ---- careTickAllTarget: what pressing "Send" sets every box to ---- */
+
+// THE OPENING STATE OF THE PAGE is a column that is mostly but not entirely
+// ticked -- the ones that would get a package are on, the quiet and skipped
+// ones are off -- so this is the press that matters and it has to fill the
+// column, not empty it.
+ok('fills the column when some are off',
+	care.careTickAllTarget([true, true, false, true]), true);
+
+// And only then does a press clear it, which is what makes the second press
+// undo the first with nothing remembered in between.
+ok('clears it only when every one is on',
+	care.careTickAllTarget([true, true, true]), false);
+
+ok('fills it when none are on',
+	care.careTickAllTarget([false, false]), true);
+
+ok('one box off is enough',
+	care.careTickAllTarget([true, true, true, true, false]), true);
+
+// A table with no boxes at all: every row locked, or nothing looked up yet.
+// Nothing to fill, so "clear" is the harmless answer -- and the press has
+// nothing to act on either way.
+ok('an empty column clears', care.careTickAllTarget([]), false);
+
 if (failures > 0) {
 	console.log(failures + ' failure(s)');
 	process.exit(1);

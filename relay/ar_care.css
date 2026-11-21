@@ -310,6 +310,20 @@ a {
 	border-bottom: 1px solid var(--care-rule);
 }
 
+/* "Send" is the one heading that does something -- it ticks the whole column
+ * and clears it again -- so it has to read as pressable with no hover to
+ * discover it, which is the only way an iPad gets to find out. The link
+ * colour against the other headings' grey is the whole of the hint. */
+.care-head a {
+	color: var(--care-link);
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.care-head a:hover {
+	text-decoration: underline;
+}
+
 /* The one group that is the point of the page. */
 .care-would .care-who {
 	font-weight: bold;

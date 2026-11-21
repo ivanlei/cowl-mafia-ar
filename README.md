@@ -148,6 +148,10 @@ starts unticked but can be ticked anyway, with the reason shown beside the
 box. Somebody who has already had one, an account KoL has marked inactive, and
 you get no box at all: those are not opinions to overrule.
 
+**Pressing "Send" in the table header ticks the whole column**, and pressing
+it again clears it. Any box still off means the press fills; only a column
+that is already full empties, so the second press always undoes the first.
+
 **Somebody mid-ascension shows a last login of "astral".** KoL serves an
 astral spirit no profile at all — no account-created date, no last login, just
 the name and "Astral Spirit" — so there is nothing to judge them by and the
