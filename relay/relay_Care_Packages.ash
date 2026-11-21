@@ -138,16 +138,34 @@ void careRow(buffer out, care_row r) {
 
 	out.append("<td class='care-rank'>" + careHtml(r.member.rank) + "</td>");
 
+	// HOW LONG AGO, NOT WHEN. COwliCK, 2026-11-21: "for last login, just show
+	// '# days ago'. that will make the column smaller." It does -- a column
+	// that had to hold "November 21, 2026 (14 days ago)" now holds "14 days
+	// ago" -- and it is also the thing you are actually reading the column
+	// for. The date itself was never the question; how stale it is, is.
+	//
+	// "today" for nought, because "0 days ago" is not something anybody says.
+	//
+	// AND IT IS WHERE A MEMBER'S STATE SHOWS when there is no date to show.
+	// The Send column used to carry that as a reason beside the box and no
+	// longer does, so "inactive" and "astral" belong here -- otherwise an
+	// account KoL has marked dead is indistinguishable from one nobody has
+	// got round to looking up.
 	out.append("<td class='care-seen'>");
-	if (r.lastLogin != "") {
-		out.append(careHtml(r.lastLogin));
-		if (r.days == 0)      out.append(" <span class='care-ago'>(today)</span>");
-		else if (r.days > 0)  out.append(" <span class='care-ago'>(" + r.days
-			+ (r.days == 1 ? " day ago)" : " days ago)") + "</span>");
-	} else if (r.verdict == CARE_HAD || r.verdict == CARE_INACTIVE) {
+	if (r.verdict == CARE_ASTRAL) {
+		out.append("<span class='care-ago'>astral</span>");
+	} else if (r.verdict == CARE_INACTIVE) {
+		out.append("<span class='care-ago'>inactive</span>");
+	} else if (r.days == 0) {
+		out.append("today");
+	} else if (r.days > 0) {
+		out.append(r.days + (r.days == 1 ? " day ago" : " days ago"));
+	} else if (r.verdict == CARE_HAD) {
 		// Deliberately not fetched: a member ruled out before the profile
 		// step costs no request, so there is no last login to show and
 		// none was wanted.
+		out.append("<span class='care-ago'>not looked up</span>");
+	} else if (r.verdict == CARE_PENDING) {
 		out.append("<span class='care-ago'>not looked up</span>");
 	} else {
 		out.append("<span class='care-ago'>&mdash;</span>");
@@ -168,13 +186,15 @@ void careRow(buffer out, care_row r) {
 			+ r.member.who + "'"
 			+ (careTickedByDefault(r.verdict) ? " checked" : "") + ">");
 	}
-	// The reason, except for the one verdict that needs none: a ticked box in
-	// a Send column already says "would get one", and printing it beside every
-	// one of a hundred and ninety ticks is noise where the exceptions are the
-	// thing to see.
-	if (r.verdict != CARE_WOULD) {
-		out.append("<span class='care-why'>" + careVerdictLabel(r.verdict) + "</span>");
-	}
+	// NO REASON TEXT. COwliCK, 2026-11-21: "in the send column, don't show
+	// things like 'not logged in lately' or 'in vallhala'." It was there to
+	// carry what the eight verdict headings used to say, and on a 239-row
+	// table it reads as a column of excuses next to a column of ticks.
+	//
+	// A box means you can send to them and no box means you cannot, which is
+	// the whole of what this column is for. Why not is still answerable:
+	// Last Login says inactive or astral or how stale they are, and the
+	// Packages column says whether they have already had one.
 	out.append("</td>");
 
 	// WHAT THIS PAGE HAS SENT THEM LATELY, and what was in it. COwliCK,

@@ -1269,25 +1269,6 @@ record care_row {
 	int days;
 };
 
-// The word for a verdict, as the page prints it.
-//
-// HERE RATHER THAN IN THE PAGE because these eight words are now the only
-// thing saying WHY a member is not getting one: the page used to group the
-// rows under eight headings and now draws one table with a tick per row, so
-// the verdict is written into the Send cell of the rows that have no tick.
-// Pinned by a test for the same reason -- a verdict with no word would print
-// its own bare key, which reads as a bug rather than as a reason.
-string careVerdictLabel(string verdict) {
-	if (verdict == CARE_WOULD)    return "would get one";
-	if (verdict == CARE_HAD)      return "already had one";
-	if (verdict == CARE_QUIET)    return "not logged in lately";
-	if (verdict == CARE_INACTIVE) return "account inactive";
-	if (verdict == CARE_PENDING)  return "not looked up yet";
-	if (verdict == CARE_UNKNOWN)  return "last login unreadable";
-	if (verdict == CARE_SELF)     return "you";
-	if (verdict == CARE_ASTRAL)   return "in Valhalla";
-	return verdict;
-}
 
 // WHETHER THE SEND TICK IS YOURS TO SET, and whether it starts set. COwliCK's
 // call, 2026-11-21: the rules become a default you can argue with rather than

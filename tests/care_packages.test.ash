@@ -812,9 +812,6 @@ void main() {
 	// added they can be sent to."
 	check("astral: starts unticked", !careTickedByDefault(CARE_ASTRAL));
 	check("astral: but is yours to tick", careTickable(CARE_ASTRAL));
-	check("astral: and says where they are",
-		careVerdictLabel(CARE_ASTRAL) != CARE_ASTRAL
-		&& careVerdictLabel(CARE_ASTRAL) != "");
 
 	/* ---- who may be ticked, and who starts ticked ---- */
 
@@ -842,25 +839,6 @@ void main() {
 	check("tick: nothing locked starts ticked",
 		!careTickedByDefault(CARE_HAD) && !careTickedByDefault(CARE_INACTIVE)
 		&& !careTickedByDefault(CARE_SELF));
-
-	/* ---- every verdict has a word for itself ---- */
-
-	// With the headings gone these eight words are the only thing saying why a
-	// row has no tick, so a verdict nobody gave a word to would print its own
-	// bare key into the Send column.
-	string [int] everyVerdict;
-	everyVerdict[0] = CARE_WOULD;
-	everyVerdict[1] = CARE_HAD;
-	everyVerdict[2] = CARE_QUIET;
-	everyVerdict[3] = CARE_INACTIVE;
-	everyVerdict[4] = CARE_PENDING;
-	everyVerdict[5] = CARE_UNKNOWN;
-	everyVerdict[6] = CARE_SELF;
-	everyVerdict[7] = CARE_ASTRAL;
-	foreach i, verdict in everyVerdict {
-		check("verdict: " + verdict + " has a word that is not its key",
-			careVerdictLabel(verdict) != verdict && careVerdictLabel(verdict) != "");
-	}
 
 	/* ---- the package's own problems ---- */
 
