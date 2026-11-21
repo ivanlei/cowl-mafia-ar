@@ -755,7 +755,14 @@
 		stopSendButton = document.getElementById('care-send-stop');
 		if (!sendButton) return;
 
-		askSend = saverFor(sendSay);
+		// A RAW ASKER, not saverFor(). saverFor returns a saver whose
+		// signature is (name, value, opts) and which always posts to
+		// ar_care_prefs.ash -- so built that way, the send posted
+		// `name=/ar_care_send.ash` to the settings endpoint, was correctly
+		// told "Not a setting this touches", and never called back at all,
+		// which left the page frozen mid-send with nothing sent. Caught on
+		// the first real send; nothing left the machine.
+		askSend = window.arAsk.make(window.arPwd, sendSay);
 
 		// TWO PRESSES. The first arms and says what the second will do; the
 		// second sends. COwliCK's call when asked, and the reason is that

@@ -49,7 +49,23 @@ record care_sent_one {
 //
 // csend is also the only one of the two that will carry Meat; plain send
 // refuses it outright and says so.
-string careSendCommand(string recipient, care_part [int] parts, int meat, string note) {
+//
+// THE BODY IS careBody() AND NOT careNote(), which is the difference between
+// a package this page can recognise later and one it cannot. careBody()
+// appends CARE_MARK, and dedup works by reading your Outbox for exactly that
+// marker -- so a package sent without it is invisible to "who has already
+// had one" and the next run sends that person a second one.
+//
+// The first version of this file passed the bare note. Three real test
+// packages went out unmarked before it was caught, and the page went on
+// offering to send all three again. The library already had careBody(), with
+// a comment saying what it was for.
+//
+// Its marker sits on its own line after a blank one, and that survives the
+// trip: cli_execute hands the whole string to one command line without
+// splitting it, and csend takes everything after the || and only trims the
+// ends (SendMessageCommand.send).
+string careSendCommand(string recipient, care_part [int] parts, int meat, string body) {
 	buffer cmd;
 	cmd.append("csend ");
 	boolean first = true;
@@ -64,7 +80,7 @@ string careSendCommand(string recipient, care_part [int] parts, int meat, string
 		cmd.append(meat + " meat");
 	}
 	cmd.append(" to " + recipient);
-	cmd.append(" || " + note);
+	cmd.append(" || " + body);
 	return cmd.to_string();
 }
 
@@ -108,12 +124,35 @@ void main() {
 		return;
 	}
 
-	care_problem [int] problems = carePackageProblems();
-	if (!careSendable(problems)) {
-		// The same refusal the page draws at the top of itself, so a button
-		// pressed against a package that cannot be sent says the same thing
-		// the list above it already says.
-		arRefuse("The package cannot be sent as it stands. See the page.");
+	// THE SAME RULE THE SAVE KEEPS, asked again of what is stored: every item
+	// real, every one giftable, no more than the five a gift box holds. The
+	// Package box cannot write a package that fails this, but the gCLI can,
+	// and `set arCarePackage = 6 things` must not become six things sent to
+	// two hundred people.
+	string wrong = careBadValue(CARE_PACKAGE, carePackage());
+	if (wrong != "") {
+		arRefuse(wrong);
+		return;
+	}
+
+	// NOT carePackageProblems(), which was the first version of this check
+	// and refused everything: it reports on careRosterRead and careSentRead,
+	// and those are set by carePlan() -- which the page calls and this
+	// endpoint has no reason to. Both were still false here, so every send
+	// was refused as "the package cannot be sent as it stands".
+	//
+	// What that check was really for is the one below, and it is the single
+	// most important line in this file.
+
+	// THE MAILBOX MUST BE READABLE OR NOTHING IS SENT. careAlreadySent()
+	// answers an unreadable Outbox the same way it answers an empty one --
+	// with nobody in it -- and "nobody has had one" is precisely the answer
+	// that would send a second package to the entire clan. So a failed read
+	// is a refusal, never a send.
+	care_sent sent = careAlreadySent();
+	if (!sent.read) {
+		arRefuse("Could not read your sent mail, so there is no telling who has"
+			+ " already had one. Nothing was sent. Try again in a moment.");
 		return;
 	}
 
@@ -134,7 +173,7 @@ void main() {
 	care_member [int] byId;
 	foreach i, m in roster byId[m.who] = m;
 
-	boolean [int] already = careWhoGotOne();
+	boolean [int] already = sent.who;
 	int mine = my_id().to_int();
 
 	care_sent_one [int] done;
@@ -159,7 +198,7 @@ void main() {
 				// package to somebody an earlier batch already reached.
 				one.why = "already had one";
 			} else {
-				cli_execute(careSendCommand(one.name, parts, meat, note));
+				cli_execute(careSendCommand(one.name, parts, meat, careBody()));
 				sentNow = sentNow + 1;
 			}
 		}
