@@ -188,21 +188,76 @@
 		return 'Send ' + ticked + (ticked === 1 ? ' Package' : ' Packages');
 	}
 
-	// HOW MANY TIMES ONE BATCH IS TRIED before the send gives up on it.
+	// WHAT A FAILED REQUEST MEANS, AND WHAT TO DO ABOUT IT.
 	//
-	// RETRYING A BATCH IS SAFE, which is the only reason this exists: the send
+	// WHY ONE BAD RECIPIENT USED TO END THE RUN. A send KoLmafia will not
+	// complete ends in SendMessageCommand.send with updateDisplay(ERROR,
+	// "Failed to send message to X"), and an error state aborts the ASH relay
+	// script where it stands. ar_care_send.ash writes its answer in one go at
+	// the end, so at that point it has written nothing at all -- and
+	// KoLmafiaASH.getClientHTML returns `written != 0`, which makes
+	// RelayRequest call sendNotFound(). The browser gets HTTP 404, one byte.
+	// Measured, not inferred: a relay script that aborts before its first
+	// write() returns exactly that, and one that aborts after writing returns
+	// 200 and a truncated body.
+	//
+	// COwliCK saw it as "Sent 69. KoLmafia did not answer (404). 61 not sent"
+	// after one recipient out of 130, and the first version of this retry made
+	// it worse by asking for the same batch three times, two seconds apart,
+	// and then stopping: three goes at the one person who could not be sent to
+	// and none at the sixty-one after them.
+	//
+	// SO A FAILURE IS NARROWED BEFORE IT IS JUDGED. A batch of three that
+	// fails says nothing about which of the three is the problem, or whether
+	// there is a problem with any of them -- so the next attempt asks for the
+	// head of it alone. A single recipient that keeps failing is set aside and
+	// the run carries on; only a failure that keeps happening to DIFFERENT
+	// recipients is treated as a reason to stop.
+	//
+	// RETRYING IS SAFE, which is what lets this be so free with attempts: the
 	// endpoint re-reads your Outbox at the top of every request and refuses
-	// anybody already in it (ar_care_send.ash), so a batch that got two of its
-	// three kmails out and then lost KoLmafia sends the third on the retry and
-	// nothing twice. The mailbox is the record, not this loop.
+	// anybody already in it, so a batch that got two of its three kmails out
+	// and then lost KoLmafia sends the third on the retry and nothing twice.
+	// The mailbox is the record, not this loop.
 	//
-	// Three, because the failures worth riding out are the momentary ones -- a
-	// request KoLmafia did not answer, an answer that arrived truncated -- and
-	// a stale password hash or a package the server refuses outright will fail
-	// all three in about five seconds and say so. COwliCK, 2026-11-21: sending
-	// must not "stop before all intended packages are sent".
-	var SEND_TRIES = 3;
-	var SEND_RETRY_MS = 2000;
+	// THE WAITS GROW because two seconds only ever rode out a stutter. If KoL
+	// is refusing because of how much has gone through it in the last minute
+	// -- which the shape of COwliCK's run is consistent with, 69 sends in a
+	// few minutes and then nothing -- then the thing that fixes it is a
+	// pause, and thirty seconds is cheap against sixty-one packages not sent.
+	var SEND_BACKOFF_MS = [2000, 10000, 30000];
+	var SEND_TRIES = SEND_BACKOFF_MS.length + 1;
+
+	// How many recipients in a row may be set aside before this is treated as
+	// something other than a handful of awkward clanmates. Five failures each
+	// fought for about three quarters of a minute is a couple of minutes of
+	// trying, which is long enough to be sure and short enough to notice.
+	var SEND_GIVE_UP = 5;
+
+	// What to do after a request that did not come back as an answer.
+	//
+	//   isolate  ask again for the head of the batch alone
+	//   again    the same single recipient, after a longer wait
+	//   skip     set this recipient aside and carry on with the rest
+	//   stop     too many in a row: this is not about the recipients
+	//
+	// `attempt` counts the attempts already made at the work in hand, and
+	// resets whenever the work changes -- so narrowing a batch to one starts
+	// its count afresh rather than inheriting the batch's.
+	function careSendAfterFailure(batchSize, attempt, skipsInARow) {
+		if (batchSize > 1) {
+			return { act: 'isolate', waitMs: SEND_BACKOFF_MS[0] };
+		}
+		if (attempt < SEND_TRIES) {
+			var i = attempt - 1;
+			if (i >= SEND_BACKOFF_MS.length) i = SEND_BACKOFF_MS.length - 1;
+			return { act: 'again', waitMs: SEND_BACKOFF_MS[i] };
+		}
+		if (skipsInARow + 1 >= SEND_GIVE_UP) {
+			return { act: 'stop', waitMs: 0 };
+		}
+		return { act: 'skip', waitMs: 0 };
+	}
 
 	// One batch's answer, counted. THREE OUTCOMES AND NOT TWO: a recipient the
 	// server refused because they already have a package is not a failure and
@@ -243,8 +298,13 @@
 		var names = t.names && t.names.length ? ' — ' + t.names.join(', ') : '';
 
 		if (t.phase === 'retry') {
-			return { text: head + ', ' + t.left + ' to go. ' + t.why
-				+ ' Trying that batch again (' + t.tries + ' of ' + SEND_TRIES + ').',
+			// WHAT IT IS WAITING FOR AND HOW LONG, because the waits grow to
+			// half a minute and a line that only said "trying again" would
+			// look like a page that had stopped.
+			return { text: head + ', ' + t.left + ' to go. ' + t.why + ' '
+				+ (t.one ? 'Trying ' + t.one + ' on their own' : 'Trying again')
+				+ ' in ' + Math.round((t.waitMs || 0) / 1000) + 's ('
+				+ t.tries + ' of ' + SEND_TRIES + ').',
 				kind: 'busy' };
 		}
 		if (t.phase === 'gaveup') {
@@ -256,11 +316,11 @@
 				+ ' not sent — press Send again to finish them.' + names, kind: 'err' };
 		}
 		if (t.phase === 'stopped') {
-			return { text: head + '. Stopped, ' + t.left + ' not sent.'
-				+ names + ' Redrawing…', kind: t.failed ? 'err' : 'done' };
+			return { text: head + names + '. Stopped, ' + t.left
+				+ ' not sent. Redrawing…', kind: t.failed ? 'err' : 'done' };
 		}
 		if (t.phase === 'done') {
-			return { text: head + '.' + names + ' Redrawing…',
+			return { text: head + names + '. Redrawing…',
 				kind: t.failed ? 'err' : 'done' };
 		}
 		return { text: head + ', ' + t.left + ' to go' + names, kind: 'busy' };
@@ -284,9 +344,12 @@
 			careSendState: careSendState,
 			careSendLabel: careSendLabel,
 			careSendTally: careSendTally,
+			careSendAfterFailure: careSendAfterFailure,
 			careSendLine: careSendLine,
 			PROFILE_MS: PROFILE_MS,
-			SEND_TRIES: SEND_TRIES
+			SEND_TRIES: SEND_TRIES,
+			SEND_GIVE_UP: SEND_GIVE_UP,
+			SEND_BACKOFF_MS: SEND_BACKOFF_MS
 		};
 		return;
 	}
@@ -770,12 +833,15 @@
 	// One batch, then the next, with the queue held here. The server decides
 	// how many a batch is and reports what happened to each name.
 	//
-	// `run` is what the whole send has done so far -- went, had, failed and
-	// the refusal names -- rather than three loose counters, because the line
-	// and the ending both report all of it and careSendLine() takes it whole.
-	// `tries` counts attempts at the batch currently in hand and resets with
-	// each new one.
-	function sendBatch(queue, run, tries) {
+	// `run` is what the whole send has done so far -- went, had, failed, the
+	// refusal names, and how many recipients in a row have been set aside --
+	// rather than loose counters, because the line and the ending both report
+	// all of it and careSendLine() takes it whole.
+	//
+	// `attempt` counts the attempts made at the work in hand and resets
+	// whenever that work changes: a new batch, or a batch narrowed to one.
+	// careSendAfterFailure() above is the whole of the policy.
+	function sendBatch(queue, run, attempt) {
 		if (stoppedSending || !queue.length) {
 			finishSend(queue, run, stoppedSending && queue.length ? 'stopped' : 'done', '');
 			// A reload, so the table comes back with the people who have now
@@ -785,7 +851,11 @@
 			return;
 		}
 
-		var take = queue.slice(0, sendSize);
+		// ONE AT A TIME ONCE SOMETHING HAS GONE WRONG. A batch that failed
+		// says nothing about which of its three the trouble is with, and the
+		// answer matters: one of them might be unsendable and the other two
+		// perfectly fine.
+		var take = queue.slice(0, attempt > 1 ? 1 : sendSize);
 		askSend('/ar_care_send.ash', { to: take.join(',') }, function (answer) {
 			var got = answer.done || [];
 			if (answer.batch > 0) sendSize = answer.batch;
@@ -794,11 +864,14 @@
 			run.had += batch.had;
 			run.failed += batch.failed;
 			run.names = run.names.concat(batch.names);
+			// A request that came back is the end of whatever run of trouble
+			// there was, however many were set aside getting here.
+			run.skips = 0;
 			// THE SERVER SAYS WHO IT DEALT WITH, and the queue drops exactly
 			// those. Dropping `take` instead would skip anybody the server
 			// did not get to -- it stops at its own batch size, not ours.
 			queue = queue.slice(got.length || take.length);
-			tell(run, queue.length, '', 0);
+			tell(run, queue.length, '', 0, 0, '');
 			if (sendButton) sendButton.textContent = 'Sending… ' + queue.length + ' to go';
 			window.setTimeout(function () { sendBatch(queue, run, 1); }, 400);
 		}, function (ok, why) {
@@ -810,32 +883,61 @@
 			// next one. See ar_ask.js.
 			if (ok) return;
 
-			// THE SAME BATCH AGAIN, not the next one and not the end of the
-			// send. A momentary failure is the common one and the endpoint is
-			// safe to re-ask (SEND_TRIES, above), so the queue does not move
-			// and nobody is skipped.
-			if (tries < SEND_TRIES) {
-				tell(run, queue.length, why, tries + 1);
-				window.setTimeout(function () {
-					sendBatch(queue, run, tries + 1);
-				}, SEND_RETRY_MS);
+			var next = careSendAfterFailure(take.length, attempt, run.skips);
+
+			if (next.act === 'stop') {
+				// NOT THE RECIPIENTS THEN. Five in a row, each fought for the
+				// best part of a minute, is KoLmafia or KoL rather than five
+				// awkward clanmates. No reload: the sentence saying so is the
+				// one thing worth keeping on screen.
+				finishSend(queue, run, 'gaveup', why);
+				if (sendButton) paintSendButton();
 				return;
 			}
 
-			// Out of tries. NO RELOAD HERE, unlike every other ending: the
-			// sentence explaining what went wrong is the one thing worth
-			// keeping on screen, and a second press of Send picks up the rest.
-			finishSend(queue, run, 'gaveup', why);
-			if (sendButton) paintSendButton();
+			if (next.act === 'skip') {
+				// SET ASIDE, NOT GIVEN UP ON. This person is named in the
+				// line and the run carries on through everybody after them,
+				// which is the whole point: sixty-one people went unsent for
+				// one that could not be.
+				run.failed++;
+				run.skips++;
+				run.names.push(careSendWho(take[0]) + ' (KoL would not take it)');
+				queue = queue.slice(1);
+				tell(run, queue.length, '', 0, 0, '');
+				window.setTimeout(function () { sendBatch(queue, run, 1); }, 400);
+				return;
+			}
+
+			// isolate or again: the head of the batch, alone, after a wait.
+			// Narrowing a batch counts as the second attempt at the person at
+			// the head of it, so the line's "2 of 4" is attempts at THEM and
+			// a recipient always gets the same four goes however the failure
+			// started.
+			var nextAttempt = next.act === 'isolate' ? 2 : attempt + 1;
+			tell(run, queue.length, why, nextAttempt, next.waitMs,
+				careSendWho(queue[0]));
+			window.setTimeout(function () {
+				sendBatch(queue, run, nextAttempt);
+			}, next.waitMs);
 		});
 	}
 
-	// The progress line, mid-send. `tries` of 0 means this is an ordinary
-	// batch rather than a retry.
-	function tell(run, left, why, tries) {
+	// A recipient's name, for a line somebody reads. The table has it, and
+	// the loop otherwise only ever handles ids.
+	function careSendWho(who) {
+		var box = document.querySelector('.care-tick[data-who="' + who + '"]');
+		var row = box ? box.closest('tr') : null;
+		var cell = row ? row.querySelector('.care-who') : null;
+		return cell ? cell.textContent.trim() : '#' + who;
+	}
+
+	// The progress line, mid-send. `tries` of 0 means an ordinary batch
+	// rather than a wait between attempts.
+	function tell(run, left, why, tries, waitMs, one) {
 		var said = careSendLine({
 			went: run.went, had: run.had, failed: run.failed, names: run.names,
-			left: left, why: why, tries: tries,
+			left: left, why: why, tries: tries, waitMs: waitMs, one: one,
 			phase: tries > 0 ? 'retry' : 'busy'
 		});
 		sendSay(said.text, said.kind);
@@ -862,7 +964,7 @@
 		sendButton.textContent = 'Sending… ' + queue.length + ' to go';
 		if (stopSendButton) stopSendButton.hidden = false;
 		sendSay('Sending…', 'busy');
-		sendBatch(queue, { went: 0, had: 0, failed: 0, names: [] }, 1);
+		sendBatch(queue, { went: 0, had: 0, failed: 0, names: [], skips: 0 }, 1);
 	}
 
 	function bindSend() {
