@@ -286,8 +286,6 @@ void main() {
 	out.append("<script type='text/javascript'>var arPwd = \"" + my_hash() + "\";</script>\n");
 	out.append("</head>\n<body>\n<div id='care'>\n");
 
-	out.append("<h1>Care Packages</h1>\n");
-
 	/* ---- anything wrong with it ---- */
 
 	// ABOVE BOTH BOXES rather than inside one of them. carePackageProblems()
