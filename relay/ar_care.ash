@@ -1292,10 +1292,16 @@ record care_row {
 // you. Nothing you know changes any of those, so the box is not drawn at all
 // and the reason stands in its place.
 boolean careTickable(string verdict) {
-	if (verdict == CARE_HAD)      return false;
-	if (verdict == CARE_INACTIVE) return false;
-	if (verdict == CARE_SELF)     return false;
-	return true;
+	// ONLY YOURSELF, because that is the only one that is impossible rather
+	// than merely unwise: KoL will not let you kmail yourself.
+	//
+	// It used to lock the inactive and anybody who had already had one too.
+	// Those are judgements, and the page now shows the facts behind both --
+	// Last Login says how long ago they played, the Packages column says how
+	// many they have had and what was in them -- so the box is yours to set
+	// and the row beside it is what you set it from. COwliCK, 2026-11-21:
+	// "make checkbox and date of login show as much as possible."
+	return verdict != CARE_SELF;
 }
 
 // Only the one the page is for. Everything else is a tick you have to mean.
@@ -1347,22 +1353,24 @@ care_row [int] carePlan() {
 		r.member = m;
 		r.days = -1;
 
-		// Ordered cheapest and most decisive first: everything down to the
-		// inactive check costs no request at all, so only the members who might
-		// actually get a package are ever looked up.
+		// THE LAST LOGIN IS READ FOR EVERYBODY, whatever their verdict turns
+		// out to be. It used to be read only inside the final branch, so a
+		// member who had already had a package -- or whose account is marked
+		// inactive -- showed no date at all even when one was sitting in the
+		// cache. COwliCK, 2026-11-21: "make checkbox and date of login show
+		// as much as possible."
+		care_login seen = careCachedLogin(m.who);
+		r.lastLogin = seen.lastLogin;
+		r.days = seen.days;
+
+		// Ordered cheapest and most decisive first.
 		if (m.who == mine) {
 			r.verdict = CARE_SELF;
 		} else if (sent.who contains m.who) {
-			// Both of these are decided before any profile is fetched, so
-			// somebody who already has one -- or whose account KoL has already
-			// told us is inactive -- costs no request at all.
 			r.verdict = CARE_HAD;
 		} else if (m.inactive) {
 			r.verdict = CARE_INACTIVE;
 		} else {
-			care_login seen = careCachedLogin(m.who);
-			r.lastLogin = seen.lastLogin;
-			r.days = seen.days;
 			// ASTRAL BEFORE UNREADABLE, because both have days = -1 and only
 			// one of them is a failure. An astral spirit's profile came back
 			// exactly as KoL meant to send it; there is simply no last login
@@ -1397,10 +1405,13 @@ care_row [int] carePlan() {
 int [int] careScanQueue() {
 	int mine = my_id().to_int();
 	int [int] queue;
+	// EVERYBODY BUT YOU. It used to skip the inactive and anybody the scan
+	// had noted as already sent to, which saved their profile fetch -- and
+	// cost them a last login, so those rows had no date to show however
+	// recently they had played. The saving was about twenty requests out of
+	// two hundred and forty; the column it emptied is one of four.
 	foreach i, m in careHeldRoster() {
 		if (m.who == mine) continue;
-		if (m.inactive) continue;
-		if (careScratchSaysSent(m.who)) continue;
 		if (!careLoginNeeded(m.who)) continue;
 		queue[count(queue)] = m.who;
 	}

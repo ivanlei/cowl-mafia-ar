@@ -471,8 +471,25 @@ void main() {
 	standInLogins[905].fetchedAt = nowSeconds;
 	standInLogins[905].format = CARE_LOGIN_FORMAT;
 
+	// ALREADY SENT TO, AND DUE A LOOK-UP. 903 is already sent to but its
+	// login is fresh, so it is not queued either way and proves nothing;
+	// this is the one that shows the queue no longer excuses a member from
+	// being looked up just because they have had a package.
+	standIn[5].who = 906;
+	standIn[5].name = "Had One, Stale Row";
+	standIn[5].rank = "Member";
+	standIn[5].savedAt = nowSeconds;
+	standIn[5].format = CARE_ROSTER_FORMAT;
+
+	standInLogins[906].looked = true;
+	standInLogins[906].lastLogin = "November 20, 2026";
+	standInLogins[906].days = 1;
+	standInLogins[906].fetchedAt = nowSeconds - careHoldSeconds() - 60;
+	standInLogins[906].format = CARE_LOGIN_FORMAT;
+
 	int [int] standInSent;
 	standInSent[903] = nowSeconds;
+	standInSent[906] = nowSeconds;
 
 	try {
 		careRosterCache = standIn;
@@ -486,12 +503,20 @@ void main() {
 		boolean [int] queued;
 		foreach i, who in standInQueue queued[who] = true;
 
-		checkInt("window: only the member whose row has aged out is queued",
-			count(standInQueue), 1);
+		checkInt("window: only the rows whose logins have aged out are queued",
+			count(standInQueue), 2);
 		check("window: the expired row is the one queued", queued contains 902);
 		check("window: a row still inside the window is left alone",
 			!(queued contains 901));
-		check("window: and somebody the scan noted as already sent to is skipped",
+		// THE QUEUE NO LONGER EXCUSES THEM. It used to leave out the
+		// inactive and anybody the scan had noted as already sent to, which
+		// saved their profile fetch and cost them a last login -- so those
+		// rows had no date to show however recently they had played.
+		check("window: somebody already sent to is looked up when due",
+			queued contains 906);
+		// And still not when they are not due: being sent to is no longer a
+		// reason to skip, but a fresh login is.
+		check("window: and not when their login is still fresh",
 			!(queued contains 903));
 		check("window: a looked-up astral row is not queued again",
 			!(queued contains 904));
@@ -830,13 +855,23 @@ void main() {
 		!careTickedByDefault(CARE_QUIET) && !careTickedByDefault(CARE_UNKNOWN)
 		&& !careTickedByDefault(CARE_PENDING));
 
-	// NOT OPINIONS, so no box is drawn at all. Ticking "already had one" is a
-	// second package to somebody who has had theirs, which is the exact
-	// mistake this whole page exists to prevent.
-	check("tick: already had one is locked off", !careTickable(CARE_HAD));
-	check("tick: an inactive account is locked off", !careTickable(CARE_INACTIVE));
-	check("tick: and you are locked off", !careTickable(CARE_SELF));
-	check("tick: nothing locked starts ticked",
+	// ONLY YOURSELF IS LOCKED, because that is the only one that is
+	// impossible rather than merely unwise: KoL will not let you kmail
+	// yourself. COwliCK, 2026-11-21: "make checkbox and date of login show
+	// as much as possible."
+	//
+	// Already-had-one and an inactive account used to be locked too. The
+	// page now shows the facts behind both -- Last Login says how long ago
+	// they played, the Packages column says how many they have had -- so the
+	// box is yours to set and the row beside it is what you set it from.
+	check("tick: already had one is yours to tick", careTickable(CARE_HAD));
+	check("tick: an inactive account is yours to tick", careTickable(CARE_INACTIVE));
+	check("tick: and only you are locked off", !careTickable(CARE_SELF));
+
+	// NONE OF THEM STARTS TICKED, which is the half that did not change: the
+	// default selection is still only the members a send would go to without
+	// anybody overruling anything.
+	check("tick: but neither starts ticked",
 		!careTickedByDefault(CARE_HAD) && !careTickedByDefault(CARE_INACTIVE)
 		&& !careTickedByDefault(CARE_SELF));
 

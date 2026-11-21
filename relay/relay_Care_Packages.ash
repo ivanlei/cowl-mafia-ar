@@ -146,29 +146,24 @@ void careRow(buffer out, care_row r) {
 	//
 	// "today" for nought, because "0 days ago" is not something anybody says.
 	//
-	// AND IT IS WHERE A MEMBER'S STATE SHOWS when there is no date to show.
-	// The Send column used to carry that as a reason beside the box and no
-	// longer does, so "inactive" and "astral" belong here -- otherwise an
-	// account KoL has marked dead is indistinguishable from one nobody has
-	// got round to looking up.
+	// THE DATE WHENEVER THERE IS ONE, whatever else is true of the member.
+	// carePlan() now reads the cached login for every row rather than only
+	// for the ones still in the running, and the scan looks everybody up, so
+	// a member who has already had a package or whose account is marked
+	// inactive shows how long ago they played like anyone else.
+	//
+	// "astral" is the one word that stands in for a date, because there is
+	// genuinely none to show: KoL serves somebody mid-ascension a profile
+	// with no last login on it at all.
 	out.append("<td class='care-seen'>");
 	if (r.verdict == CARE_ASTRAL) {
 		out.append("<span class='care-ago'>astral</span>");
-	} else if (r.verdict == CARE_INACTIVE) {
-		out.append("<span class='care-ago'>inactive</span>");
 	} else if (r.days == 0) {
 		out.append("today");
 	} else if (r.days > 0) {
 		out.append(r.days + (r.days == 1 ? " day ago" : " days ago"));
-	} else if (r.verdict == CARE_HAD) {
-		// Deliberately not fetched: a member ruled out before the profile
-		// step costs no request, so there is no last login to show and
-		// none was wanted.
-		out.append("<span class='care-ago'>not looked up</span>");
-	} else if (r.verdict == CARE_PENDING) {
-		out.append("<span class='care-ago'>not looked up</span>");
 	} else {
-		out.append("<span class='care-ago'>&mdash;</span>");
+		out.append("<span class='care-ago'>not looked up</span>");
 	}
 	out.append("</td>");
 
