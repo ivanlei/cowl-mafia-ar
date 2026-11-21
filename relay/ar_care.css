@@ -33,9 +33,13 @@ body {
 	font: 13px/1.45 Arial, Helvetica, sans-serif;
 }
 
+/* WIDE ENOUGH FOR THE MEMBER TABLE, which is the thing on this page that
+ * sets the width. 56em was right when that table had four columns; the fifth
+ * (Packages) pushed its natural width to 781px inside a 728px box and the
+ * column spilled out past the section border. Measured, not guessed. */
 #care {
 	padding: 10px 12px 28px;
-	max-width: 56em;
+	max-width: 64em;
 }
 
 h1 {
@@ -347,9 +351,15 @@ a {
 	color: var(--care-quiet);
 }
 
-/* The Send cell: a tick, or a tick and a reason, or a reason alone. */
+/* The Send cell: a tick, or a tick and a reason, or a reason alone.
+ *
+ * ALLOWED TO WRAP, unlike the date beside it. At full width it never does --
+ * the reason is short -- but it is the cell with the most slack in it, so
+ * when the table is squeezed this is the one that should give rather than
+ * the whole table spilling out of the box. A date broken across two lines
+ * reads far worse than "not logged in / lately" does. */
 .care-send {
-	white-space: nowrap;
+	white-space: normal;
 }
 
 .care-send input {

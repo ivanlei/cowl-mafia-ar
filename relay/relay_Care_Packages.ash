@@ -225,22 +225,22 @@ void careRow(buffer out, care_row r) {
 	}
 }
 
-// The rows, in three groups: ticked, then yours to tick, then locked.
+// The rows, in roster order. All of them, in the order KoL lists them.
 //
-// ROSTER ORDER WITHIN EACH GROUP, which is what carePlan() already returns and
-// is worth keeping on purpose: KoL serves the roster grouped by rank, so this
-// keeps the ranks together and makes the Rank column worth reading down.
-// Alphabetical would scatter them for the sake of a name you can find with the
-// browser's own search.
+// NO GROUPING. This used to sort into three -- ticked, then yours to tick,
+// then locked -- which put everybody who had already had a package at the
+// bottom of a 239-row table, a long way from where they had been the last
+// time you looked. COwliCK, 2026-11-21: "don't move people who already
+// received a package to the bottom, keep them where they were."
+//
+// Roster order is also the order that makes the Rank column worth reading:
+// KoL serves the roster grouped by rank, so leaving it alone keeps the ranks
+// together. What the grouping was for -- seeing at a glance who is getting
+// one -- the Send column now does in place, a tick per row, which is the
+// better answer anyway because it does not move anything.
 void careRows(buffer out, care_row [int] rows) {
 	foreach i, r in rows {
-		if (careTickedByDefault(r.verdict)) careRow(out, r);
-	}
-	foreach i, r in rows {
-		if (!careTickedByDefault(r.verdict) && careTickable(r.verdict)) careRow(out, r);
-	}
-	foreach i, r in rows {
-		if (!careTickable(r.verdict)) careRow(out, r);
+		careRow(out, r);
 	}
 }
 
