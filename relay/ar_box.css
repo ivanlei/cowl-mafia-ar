@@ -1,0 +1,107 @@
+/* ar_box.css -- KoL's own section box, shared by the pages here that draw one.
+ *
+ * The look half of ar_box.ash. KoL's own markup for a section is a two-row
+ * table:
+ *
+ *     <table width=95% cellspacing=0 cellpadding=0>
+ *       <tr><td style="color: white;" align=center bgcolor=blue><b>NAME</b></td></tr>
+ *       <tr><td style="padding: 5px; border: 1px solid blue;">...</td></tr>
+ *
+ * NOT A TABLE HERE, AND COLLAPSIBLE: <details> and <summary>, so tapping the
+ * bar folds the section away and leaves the bar. That is the whole of what
+ * these pages want on an iPad, where a 239-row table is a lot of scrolling and
+ * there is no hover to discover anything with -- and <details> does the
+ * folding itself, with no script, so it keeps working with scripting off.
+ *
+ * SELF-CONTAINED, like the two stylesheets beside it. A page here is served on
+ * its own rather than decorated into one of KoL's, so it inherits none of KoL's
+ * stylesheets and every colour has to be declared somewhere this file can see.
+ * `color-scheme` is what makes light-dark() pick a half; it is set in each of
+ * these files rather than in one of them, because which of them a page links
+ * is the page's business. */
+:root {
+	color-scheme: light dark;
+
+	/* KOL'S BLUE IS KOL'S BLUE IN THE LIGHT HALF and nothing else will do: the
+	 * point of the box is to look like the game, and the game's bar is #00f.
+	 *
+	 * It will not do in the dark half. #00f against a black page is the one
+	 * pairing this whole file is here to avoid -- a saturated blue on #000
+	 * fringes and buzzes, and white on it is close to unreadable at the 13px
+	 * these pages set. So dark gets the same hue taken down to something a bar
+	 * can be read off, and the ink comes down off pure white with it. */
+	--ar-box-bar:     light-dark(#0000ff, #1d3b7a);
+	--ar-box-bar-ink: light-dark(#ffffff, #dce4f5);
+	--ar-box-edge:    light-dark(#0000ff, #2b4d93);
+}
+
+.ar-box {
+	margin: 0 0 14px;
+}
+
+/* The bar.
+ *
+ * CENTRED THE WAY KoL CENTRES IT, which is why the chevron is positioned
+ * rather than laid out: a flex row with a mark at the start pushes the title
+ * off centre by the width of the mark, and the title is the thing the eye is
+ * looking for. Taking the mark out of the flow puts it at the left edge and
+ * leaves the title centred in the bar itself.
+ *
+ * THE MARKER IS DRAWN HERE because a summary is display:list-item by default
+ * and the triangle is its list marker. Both the standard list-style and the
+ * -webkit- pseudo have to be turned off -- one of them is not enough for both
+ * engines -- and ::before then puts back a mark this file controls and can
+ * turn for [open]. */
+.ar-box > summary {
+	background: var(--ar-box-bar);
+	color: var(--ar-box-bar-ink);
+	cursor: pointer;
+	font-weight: bold;
+	list-style: none;
+	padding: 4px 26px;
+	position: relative;
+	text-align: center;
+}
+
+.ar-box > summary::-webkit-details-marker {
+	display: none;
+}
+
+/* A CHEVRON DRAWN FROM TWO BORDERS, not a character. U+25B6 and its friends
+ * have emoji presentation by default, so a folded section comes out with Apple
+ * Color Emoji's blue rounded button sitting on the bar in Safari and in every
+ * WKWebView -- which is where this page is actually read -- while Blink shows
+ * the text form and looks right. Nothing about the character is reliable
+ * across the two, and a box is not worth a font stack.
+ *
+ * The centring translate has to ride along with the rotation, since both live
+ * in the one transform property. */
+.ar-box > summary::before {
+	border-bottom: 1.5px solid currentColor;
+	border-right: 1.5px solid currentColor;
+	content: "";
+	height: 6px;
+	left: 10px;
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%) rotate(-45deg);
+	width: 6px;
+}
+
+.ar-box[open] > summary::before {
+	transform: translateY(-75%) rotate(45deg);
+}
+
+.ar-box-body {
+	border: 1px solid var(--ar-box-edge);
+	padding: 8px 10px;
+}
+
+/* A HAIRLINE IS A HAIRLINE: KoL's border is 1px and a 10px pad reads right at
+ * 13px text, but the pane is often half a screen wide on an iPad and the
+ * gutters are worth more there than the symmetry. */
+@media (max-width: 560px) {
+	.ar-box-body {
+		padding: 8px 6px;
+	}
+}

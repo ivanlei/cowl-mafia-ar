@@ -13,6 +13,11 @@ which is the point of it.
 This does the bookkeeping either side of that: which items you use as tickets,
 getting them into the store and parked, and reading back what sold.
 
+There is a second page here now — **Care Packages**, further down — which uses
+the same item sourcing. Both are about taking things you hold and getting them
+to other people, so they ask "where may this come from, and will that place
+hand it over today" the same way rather than each keeping an answer.
+
 ## What it does
 
 **Tickets.** Choose the items you use as tickets. Type a name or pick one from
@@ -78,6 +83,145 @@ ar sales [filter]      ticket sales, by item or buyer
 The page and the command answer out of the same functions, so they cannot
 disagree about what your store holds.
 
+## Care packages
+
+A clan page: of everybody on the roster, who has logged in lately and has not
+already had a care package from you. On a clan of a couple of hundred that is
+otherwise an evening's work — three pages of roster, a profile each for the
+last login, and your own memory for who you already sent to.
+
+**It reads your sent mail for that last part**, rather than keeping a list of
+its own, because a list of its own can disagree with the game. Both sent boxes:
+KoL deletes the Outbox after two weeks and says so on the page, while the Saved
+box says it is never deleted — so a package is saved as it is sent and is still
+remembered in a month. A package is told apart from an ordinary conversation by
+a marker line in the message, which is why the page does not count the kmail you
+sent somebody last Tuesday.
+
+**Nothing is looked up until you ask for it.** The last login is only on each
+member's own profile, so a clan of a couple of hundred is a couple of hundred
+requests however it is arranged — about a minute of them. So the page draws
+straight away from what it already holds, and the look-up is a button: it walks
+the roster, then fetches profiles a few at a time with a pause between, buttons
+disabled, with a line saying how far it has got and roughly how long is left.
+**Stop** ends it after the current batch and keeps what it found, so the button
+then offers to continue from there. (It used to spend eighty profile fetches
+inside the page render — eight seconds of blank browser, and then a sentence
+asking you to reload for the next eighty.)
+
+**What it finds is held for a week**, the roster and the last logins both, with
+the age of it printed next to the conclusions drawn from it. That is a real
+trade: a last login read six days ago can call somebody quiet who came back on
+Tuesday. Shorten the window if that matters more to you than the requests do.
+
+**Your sent mail is not held.** It is re-read every time the page is drawn, at
+two requests, because who has already had one is the answer whose being stale
+would cost somebody a second package.
+
+**It sends.** The button at the foot of the Care Package box mails everybody
+ticked, a few at a time, with a progress line and a Stop. It will not light
+until there is something in the package, a note on it, and at least one
+person ticked — and it takes two presses: the first arms it and says what the
+second will do, because KoL has no unsend.
+
+Each send is KoLmafia's own `csend`, which tries a plain kmail and falls back
+to a gift box when KoL refuses one — which is what happens for a recipient in
+Hardcore or Ronin. Who has already had one is read out of your Outbox before
+each batch, so a send stopped anywhere resumes without sending anybody a
+second package.
+
+**The page is two KoL section boxes** — Care Package and Clan Members — which
+fold when you tap the bar. Every control on them saves itself as you change
+it; there is no Save button anywhere.
+
+**Package is shaped like KoL's own kmail form**: a two-character quantity, the
+item beside it, a bold `+` to add another row, a Send Meat box and the note as
+a message box. Clearing a row's item name takes it out again.
+
+The item box lists what matches **underneath itself** rather than off to one
+side, which is what a native `<datalist>` does in Safari. It suggests the
+giftable items the places you allow actually hold, with how many you have, the
+way KoL's own dropdown does — but it only suggests, so you can name something
+you mean to buy before you send, and it is checked against the real item
+database either way.
+
+The top of the same box is who gets one: how recently counts as active, and
+which places a package may be packed from.
+
+**Each clan member has a Send tick.** It starts ticked for everyone who would
+get a package. Somebody ruled out by a judgement — not logged in lately, a
+profile that would not parse, nobody who has looked yet — starts unticked but can be ticked anyway, with the reason shown beside the
+box. Somebody who has already had one, an account KoL has marked inactive, and
+you get no box at all: those are not opinions to overrule.
+
+**Pressing "Send" in the table header ticks the whole column**, and pressing
+it again clears it. Any box still off means the press fills; only a column
+that is already full empties, so the second press always undoes the first.
+
+**A Packages column says what this page has sent them lately** — "2
+received", always a count, never blank. It counts the packages in your sent
+mail carrying the tool's own marker, in the last two weeks, which is how long
+KoL keeps an Outbox anyway. Press a non-zero one and the row unfolds to show
+each package's date and what was in it.
+
+A package that went as a gift box — which is what happens for a recipient in
+Hardcore or Ronin — reads as the box rather than its contents, because the
+box is all your Outbox records of it.
+
+**The summary counts the ticks, not who is eligible.** Untick down to three
+and it prices three packages — the Meat, the items and the gift boxes all
+follow what is ticked, because that is who a send would go to.
+
+**Somebody mid-ascension shows a last login of "astral".** KoL serves an
+astral spirit no profile at all — no account-created date, no last login, just
+the name and "Astral Spirit" — so there is nothing to judge them by and the
+page does not pretend otherwise. They start unticked with *in Valhalla* as the
+reason, and the tick is there if you want to send anyway. The ticks are not
+remembered across a reload, and changing the two Config settings that re-decide
+the table reloads it, so set those first.
+
+Open it from the relay browser's Scripts menu, as "Care Packages".
+
+| Preference | Default | |
+|---|---|---|
+| `arCareDays` | `14` | logged in this recently counts as active |
+| `arCarePackage` | empty | what is in one, in KoLmafia's item-list syntax |
+| `arCareMeat` | `0` | Meat to include as well |
+| `arCareSources` | `inventory,closet,display` | where a package may be packed from |
+| `arCareNote` | a short default | the message that goes with one |
+| `arCareHoldDays` | `7` | how long a look-up's roster and last logins are kept |
+| `arCareScanBatch` | `5` | profiles fetched per request during a look-up |
+| `arCareScanPause` | `1000` | ms between batches — with the batch, about three a second |
+
+The last two are there so you can be gentler on KoL's server than this ships,
+without editing a script; `0` for the pause means as fast as it answers.
+
+**Hagnk's storage is not a place a package can be packed from**, and the page
+will refuse it rather than accept it and ignore it. A pull out of storage costs
+one of the twenty a day Ronin allows, which is worth more than a present. (The
+anti-raffle still restocks from storage: that is a different trade, which is
+why the two have had separate source settings all along.)
+
+With `arCarePackage` unset the page offers nothing to press and says so — a
+tool that gives your items away to a hundred people should not arrive with an
+opinion about which ones.
+
+An item whose name has a comma in it — "Oh, the Humanitini", "Trash, a Memoir"
+— is stored as KoLmafia's bracketed id instead, because the preference is a
+comma-separated list and the name would otherwise split into two entries that
+resolve to nothing. That is still item-list syntax and `set arCarePackage = 3
+soda water` still works; it only applies to the awkward names, and the page
+shows you the name either way.
+
+Two things it will refuse rather than get wrong. **At most five different
+items**, because a recipient in Hardcore or Ronin can only be sent a gift box
+and KoLmafia's auto-chosen box holds five — a longer package would work for
+part of your clan and not the rest. And **if it cannot read your sent mail it
+will not offer to send at all**, because an unread mailbox looks exactly like
+"nobody has had one", and that is the one direction this must not fail in.
+
+
+
 ## Settings
 
 Ordinary KoLmafia preferences. Change them on the page, with `ar count` and
@@ -90,7 +234,10 @@ Ordinary KoLmafia preferences. Change them on the page, with `ar count` and
 | `arParkPrice` | `999999999999` | the price restock parks at (KoL's ceiling) |
 | `arSources` | `inventory,closet,display,storage` | where restocking may draw from |
 
-Those four are all of them. There is no fifth that buys.
+Those four are the anti-raffle's, and there is no fifth that buys. The care
+packages page has its own six, in its section above — it shares the *code* that
+reads a source, deliberately not the setting, since storage is a Ronin pull
+each and you might well spend those on one and not the other.
 
 
 ## Install
@@ -121,6 +268,9 @@ relay/ar_prefs.ash       settings, allowlisted
 relay/ar_relay.ash       what the endpoints share
 relay/ar_assets.ash      versioned addresses for the css and js
 relay/ar_relay.css, relay/ar_relay.js
+relay/relay_Care_Packages.ash the care packages page
+relay/ar_care.ash        roster, last logins, sent mail, who would get one
+relay/ar_care.css
 ```
 
 Two things about the layout are load-bearing rather than taste:

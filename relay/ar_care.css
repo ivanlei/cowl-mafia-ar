@@ -1,0 +1,595 @@
+/* ar_care.css -- the Care Packages page.
+ *
+ * Sized for an iPad in the relay browser first, which is where this gets used:
+ * rows tall enough to read, nothing depending on hover, and a table that stays
+ * legible when the pane is half a screen wide.
+ *
+ * KoL's own relay pages inherit a 13px Arial from its stylesheets; this page is
+ * served on its own and has none of that, so it sets its own.
+ *
+ * Light and dark, and self-contained, for the same reason ar_relay.css is:
+ * this page carries no stylesheet but this one, so the switch has to be here.
+ * `color-scheme` is what makes light-dark() pick a half and what gets the
+ * scrollbar drawn dark; without it a dark page keeps a white one. */
+:root {
+	color-scheme: light dark;
+
+	--care-page:      light-dark(#fff, #000);
+	--care-ink:       light-dark(#000, #d6d9dd);
+	--care-quiet:     light-dark(#595959, #8b929b);
+	--care-rule:      light-dark(#ccc, #434a53);
+	--care-rule-soft: light-dark(#eee, #2f343c);
+	--care-warn:      light-dark(#9a3b00, #ffb07a);
+	--care-link:      light-dark(#0b57d0, #9ec5ff);
+	/* The look-up button's face. A button left with no background of its own
+	 * gets the browser's, which on a dark page is a light slab. */
+	--care-button:    light-dark(#f2f3f5, #2f343c);
+}
+
+body {
+	margin: 0;
+	background: var(--care-page);
+	color: var(--care-ink);
+	font: 13px/1.45 Arial, Helvetica, sans-serif;
+}
+
+/* WIDE ENOUGH FOR THE MEMBER TABLE, which is the thing on this page that
+ * sets the width.
+ *
+ * It went to 64em when the fifth column pushed the table to 781px inside a
+ * 728px box and Packages spilled out past the section border. Last Login
+ * then became "14 days ago" instead of "November 07, 2026 (14 days ago)"
+ * and the Send column lost its reason text, which took those two from
+ * 205px and 137px to 124px and 57px -- so the cap is back where it was,
+ * measured again rather than left wide out of caution. */
+#care {
+	padding: 10px 12px 28px;
+	max-width: 56em;
+}
+
+a {
+	color: var(--care-link);
+}
+
+/* What is configured, as a label/value pair per row. Three of the five rows
+ * carry a control now, so the rows are taller than a row of text wants: an
+ * input and its label share a baseline only with the middle alignment, and
+ * 26px of control is about the smallest an iPad thumb finds reliably. */
+.care-setup {
+	border-collapse: collapse;
+	margin-bottom: 4px;
+}
+
+.care-setup td {
+	padding: 3px 12px 3px 0;
+	vertical-align: middle;
+}
+
+/* THE VALUE COLUMN TAKES THE REST. A table sizes itself to its contents, so
+ * without this the Package Note shrank to the width of the label beside it
+ * and showed about four words of a sentence. The label column is nowrap, so
+ * giving the other one everything is the whole of it. */
+.care-setup {
+	width: 100%;
+}
+
+.care-setup td + td {
+	width: 100%;
+}
+
+/* AND NO PADDING ON THE OUTSIDE EDGE OF IT. A cell padded 12px to the right
+ * inside a table that is already 100% wide puts a 100%-wide input 12px past
+ * the box: measured at 375px, the page scrolled sideways by 16. */
+.care-setup td:last-child {
+	padding-right: 0;
+}
+
+.care-label {
+	color: var(--care-quiet);
+	white-space: nowrap;
+}
+
+/* The Config box's own controls.
+ *
+ * SIZED, NOT STRETCHED. A box wide enough for three digits and a box that
+ * takes the width it is given: the note is a sentence and the days are two
+ * digits, and two equally wide boxes would say they hold the same kind of
+ * thing. */
+.care-number,
+.care-text {
+	background: var(--care-page);
+	border: 1px solid var(--care-rule);
+	border-radius: 3px;
+	color: var(--care-ink);
+	font: inherit;
+	min-height: 26px;
+	padding: 2px 6px;
+}
+
+.care-number {
+	width: 4.5em;
+}
+
+.care-text {
+	max-width: 32em;
+	width: 100%;
+}
+
+/* The places. Wrapping on purpose -- three fit on one line in a wide pane and
+ * go to two in a narrow one -- and the word is part of the target, so the
+ * whole label is tappable rather than the 13px box beside it. */
+.care-places {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 14px;
+}
+
+.care-places label {
+	align-items: center;
+	cursor: pointer;
+	display: inline-flex;
+	gap: 5px;
+	min-height: 26px;
+}
+
+/* The Package box's item rows: a quantity, then the item, like KoL's own
+ * "Send: [1] [type to find an item]".
+ *
+ * THE ITEM BOX TAKES WHAT IS LEFT, which is what makes a column of them line
+ * up: the quantity is three digits wide for ever and the names are not, so
+ * the item box flexes and the pair keep their edges down the box. */
+/* The Package box, which is a copy of KoL's Send a Message form: centred,
+ * the message first under a plain label, then the Send rows, then a bold
+ * Send Meat. KoL wraps the whole thing in a <center> and this is that. */
+.care-kmail {
+	padding: 4px 0 2px;
+	text-align: center;
+}
+
+/* Plain, not bold, and on a line of its own -- the one label on KoL's form
+ * that is not in <b> is "Message:". */
+.care-note-label {
+	margin-bottom: 3px;
+}
+
+/* The message box. Sized to the Send rows below it so the box reads as one
+ * column of controls rather than two widths stacked, and resizable
+ * downwards only: sideways would take it out past the section border. */
+.care-note-box {
+	background: var(--care-page);
+	border: 1px solid var(--care-rule);
+	border-radius: 3px;
+	color: var(--care-ink);
+	font: inherit;
+	max-width: 100%;
+	padding: 4px 6px;
+	resize: vertical;
+	text-align: left;
+	width: 27em;
+}
+
+/* LEFT-ALIGNED INSIDE THE CENTRED BLOCK. Centring each row separately would
+ * stagger the quantity boxes, since the row carrying the + is wider than the
+ * rest; this lines the columns up and lets only that row run further right,
+ * which is what KoL's does. */
+.care-rows {
+	display: inline-block;
+	margin: 10px 0 2px;
+	text-align: left;
+}
+
+/* NOT .care-row. That class is a clan member's <tr> further down the page,
+ * and this rule on it took the member table apart -- every row became a flex
+ * container and the columns stopped lining up with the header. */
+.care-send-row {
+	align-items: center;
+	display: flex;
+	gap: 6px;
+	margin-bottom: 4px;
+}
+
+.care-send-label {
+	white-space: nowrap;
+}
+
+.care-meat-line {
+	margin: 10px 0 2px;
+}
+
+/* THE QUANTITY IS TWO CHARACTERS, the way KoL's is (`size=2`). A number input
+ * was the obvious choice and the wrong one: its spinner arrows take as much
+ * width again, and no two browsers draw them the same, so a column of them
+ * was the one part of this box that looked like a form and not like KoL. */
+.care-qty {
+	background: var(--care-page);
+	border: 1px solid var(--care-rule);
+	border-radius: 3px;
+	color: var(--care-ink);
+	font: inherit;
+	min-height: 26px;
+	padding: 2px 6px;
+	text-align: right;
+	width: 3.5em;
+}
+
+/* The combo takes the rest of the row, and its list -- positioned against
+ * this -- comes out the same width. */
+/* A FIXED WIDTH, not a flexing one. Every Send row is then the same width,
+ * the list under each box is the same width, and the message box above can
+ * be sized to match -- which is what makes the stack read as one column.
+ * KoL's own select is a fixed width too, being a select. */
+.care-combo {
+	flex: 0 0 auto;
+	max-width: 100%;
+	width: 22em;
+}
+
+/* KoL'S PLUS: a bold link at the end of the first row, not a button under
+ * them. Sized up a little, like KoL's `<font size=+1>`, because a single
+ * character is a small thing to aim at. */
+/* KoL'S PLUS: a bold link after the first row's item box, sized up a little
+ * the way its `<font size=+1>` does, because one character is a small thing
+ * to aim at on a tablet. */
+.care-plus {
+	font-size: 16px;
+	line-height: 1;
+	padding: 4px 6px;
+	text-decoration: none;
+}
+
+
+/* WHAT A CONTROL JUST SAID, under the box it belongs to -- there are two of
+ * these now, one per box, because a refusal caused by a checkbox in Config
+ * and printed beside the look-up button half a page away reads as an
+ * unrelated failure. A min-height, so the page does not jump by a line every
+ * time one appears and goes. */
+.care-said {
+	display: block;
+	min-height: 1.3em;
+}
+
+.care-said.err {
+	color: var(--care-warn);
+	font-weight: bold;
+}
+
+.care-said.done,
+.care-said.busy {
+	color: var(--care-quiet);
+}
+
+/* Anything wrong with the package. A fatal one is why there is no send button,
+ * so it reads as a refusal; a warning is worth knowing and does not stop. */
+.care-problems {
+	margin: 0 0 12px;
+	padding-left: 1.2em;
+}
+
+.care-fatal {
+	font-weight: bold;
+}
+
+.care-warn {
+	color: var(--care-warn);
+}
+
+.care-summary {
+	margin: 12px 0 4px;
+}
+
+.care-note {
+	margin: 4px 0 14px;
+	color: var(--care-quiet);
+	font-style: italic;
+}
+
+/* The ranks the roster has, so arCareSkipRanks can be typed from the page rather
+ * than from however many pages of roster. A skipped one is struck through, so
+ * the list is also a readout of the setting. */
+.care-ranks {
+	margin: 0 0 14px;
+	line-height: 1.8;
+}
+
+.care-rank-off {
+	text-decoration: line-through;
+	color: var(--care-quiet);
+}
+
+/* The roster. */
+.care-list {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.care-list td {
+	padding: 3px 8px 3px 0;
+	vertical-align: top;
+	border-bottom: 1px solid var(--care-rule-soft);
+}
+
+.care-head td {
+	font-weight: bold;
+	color: var(--care-quiet);
+	border-bottom: 1px solid var(--care-rule);
+}
+
+/* "Send" is the one heading that does something -- it ticks the whole column
+ * and clears it again -- so it has to read as pressable with no hover to
+ * discover it, which is the only way an iPad gets to find out. The link
+ * colour against the other headings' grey is the whole of the hint. */
+.care-head a {
+	color: var(--care-link);
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.care-head a:hover {
+	text-decoration: underline;
+}
+
+/* The one group that is the point of the page. */
+.care-would .care-who {
+	font-weight: bold;
+}
+
+/* The rows that are context rather than the answer. There are no section
+ * headings any more -- one table, a tick per row -- so this greying is now
+ * the only thing separating the hundred and ninety who are getting one from
+ * the fifty who are not, at a glance and before reading a word of the Send
+ * column. */
+.care-had, .care-quiet, .care-inactive, .care-skipped, .care-pending,
+.care-unknown, .care-self, .care-astral {
+	color: var(--care-quiet);
+}
+
+.care-rank, .care-seen {
+	white-space: nowrap;
+}
+
+.care-ago {
+	color: var(--care-quiet);
+}
+
+/* The Send cell: a tick, or a tick and a reason, or a reason alone.
+ *
+ * ALLOWED TO WRAP, unlike the date beside it. At full width it never does --
+ * the reason is short -- but it is the cell with the most slack in it, so
+ * when the table is squeezed this is the one that should give rather than
+ * the whole table spilling out of the box. A date broken across two lines
+ * reads far worse than "not logged in / lately" does. */
+.care-send {
+	white-space: normal;
+}
+
+.care-send input {
+	cursor: pointer;
+	/* A 13px box is not a tap target. KoL's own pages get away with it because
+	 * they are read, not operated; this one has two hundred of them. */
+	height: 15px;
+	margin: 0;
+	vertical-align: middle;
+	width: 15px;
+}
+
+/* WHY THIS ROW IS NOT TICKED, in the place the tick would be. These eight
+ * words were eight section headings until the table went flat, and they carry
+ * the whole of what was lost with them. */
+.care-why {
+	color: var(--care-quiet);
+	margin-left: 6px;
+}
+
+/* No box to sit beside, so no gap to leave for one. */
+.care-had .care-why, .care-inactive .care-why, .care-self .care-why {
+	margin-left: 0;
+}
+
+/* How many are ticked, written by ar_care.js. Tabular figures so a count
+ * climbing past a digit does not shuffle the words after it sideways. */
+.care-ticked {
+	font-variant-numeric: tabular-nums;
+	margin: 14px 0 4px;
+}
+
+/* A phone-width pane: the rank is the first thing worth losing. The Send
+ * column is not -- it is the point of the table -- and neither is the reason
+ * in it, which is the only remaining explanation of an empty box. */
+@media (max-width: 560px) {
+	#care {
+		padding: 8px 10px 22px;
+	}
+
+	.care-rank {
+		display: none;
+	}
+
+	.care-seen, .care-send {
+		white-space: normal;
+	}
+
+	/* A TABLE CANNOT GO NARROWER THAN ITS CONTENT, and a clan roster is full
+	 * of names that are twenty-odd characters with no space in them.
+	 * Letting white-space wrap is not enough -- there is nowhere in a name
+	 * like that to wrap -- so the table stayed wider than the box and the
+	 * whole page scrolled sideways by 16px at 375. Breaking mid-word is ugly
+	 * and is still better than a page that slides under your thumb. */
+	.care-who, .care-seen, .care-send {
+		overflow-wrap: anywhere;
+	}
+
+	/* THE SEND ROW GIVES UP ITS FIXED WIDTH HERE. 22em of item box plus the
+	 * label, the quantity and the gaps is 380px of row in 341px of box, and
+	 * the page scrolled sideways by 63. Measured at 375. The stack goes
+	 * block so the rows have a width to flex inside, and the item box takes
+	 * whatever the label and quantity leave. */
+	.care-rows {
+		display: block;
+	}
+
+	.care-combo {
+		flex: 1 1 auto;
+		min-width: 0;
+		width: auto;
+	}
+}
+
+/* The look-up: the one control on the page.
+ *
+ * Tap-sized rather than text-sized, because this is pressed on an iPad in the
+ * relay browser -- 32px of height is about the smallest a thumb finds reliably,
+ * and the progress line sits beside it rather than under it so that pressing
+ * the button does not move the thing you are reading. */
+.care-scan {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 10px;
+}
+
+.care-scan button {
+	min-height: 32px;
+	padding: 4px 12px;
+	font: inherit;
+	color: var(--care-ink);
+	background: var(--care-button);
+	border: 1px solid var(--care-rule);
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+/* DISABLED HAS TO LOOK DISABLED. The whole point of the button is that the
+ * page no longer does a minute of fetching without saying so, and a button
+ * that still looks pressable while a scan runs is the same failure in
+ * miniature. */
+.care-scan button:disabled {
+	color: var(--care-quiet);
+	cursor: default;
+	opacity: 0.6;
+}
+
+/* How far the scan has got. Tabular figures so a counter climbing from 9 to 10
+ * to 100 does not shuffle the words after it sideways. */
+.care-progress {
+	color: var(--care-quiet);
+	font-variant-numeric: tabular-nums;
+}
+
+/* The scan's own said-line sits inline beside the button rather than under
+ * it, which is the one place .care-said's block layout is wrong: a line that
+ * takes a row of its own would push the whole table down and back up as a
+ * scan starts and stops. */
+.care-scan .care-said {
+	display: inline;
+	min-height: 0;
+}
+
+/* How old what is held is, said next to the conclusions drawn from it. */
+.care-held {
+	margin: 0 0 12px;
+	color: var(--care-quiet);
+}
+
+.care-stale {
+	color: var(--care-warn);
+}
+
+/* The send.
+ *
+ * THE LOUDEST CONTROL ON THE PAGE, and deliberately: it is the only one that
+ * does something to other people, and it is sitting directly under the
+ * editor for what it does to them. Everything else here is a link, a
+ * checkbox or a text box. */
+.care-sendline {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	justify-content: center;
+	margin: 12px 0 2px;
+}
+
+.care-sendline button {
+	background: var(--care-button);
+	border: 1px solid var(--care-rule);
+	border-radius: 4px;
+	color: var(--care-ink);
+	font: inherit;
+	font-weight: bold;
+	min-height: 32px;
+	padding: 5px 16px;
+}
+
+.care-sendline button:not(:disabled) {
+	cursor: pointer;
+}
+
+/* A DISABLED SEND HAS TO LOOK DISABLED, and the reason beside it says which
+ * of the three things is missing -- the ticks are at the far end of a long
+ * page from the package, so "why not" is not answerable by looking. */
+.care-sendline button:disabled {
+	color: var(--care-quiet);
+	cursor: default;
+	opacity: 0.6;
+}
+
+/* ARMED: the first press turned it into a question. It has to stop looking
+ * like the button you just pressed, or a second press is a reflex rather
+ * than an answer. */
+.care-armed {
+	background: var(--care-warn) !important;
+	border-color: var(--care-warn) !important;
+	color: light-dark(#fff, #1a1004) !important;
+}
+
+.care-sendline .care-said {
+	display: inline;
+	min-height: 0;
+	text-align: left;
+}
+
+/* The Packages column: how many this page has sent them lately, and what was
+ * in them. */
+.care-gifts {
+	white-space: nowrap;
+}
+
+/* A LINK ONLY WHEN THERE IS SOMETHING BEHIND IT. "0 received" is plain text
+ * -- a pressable-looking thing that opens nothing is worse than no
+ * affordance at all, and most of the column is zeroes. */
+.care-gift-none {
+	color: var(--care-quiet);
+}
+
+.care-gift-open {
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.care-gift-open:hover,
+.care-gift-shown {
+	text-decoration: underline;
+}
+
+/* The unfolded detail. Indented under the name rather than spread across the
+ * table, so it reads as belonging to the row above it and not as a new one. */
+.care-gift-row td {
+	border-bottom: 1px solid var(--care-rule-soft);
+	padding: 0 0 6px;
+}
+
+.care-gift-list {
+	margin: 0;
+	padding-left: 2.2em;
+}
+
+.care-gift-list li {
+	color: var(--care-ink);
+	line-height: 1.5;
+}
+
+.care-gift-when {
+	color: var(--care-quiet);
+	white-space: nowrap;
+}

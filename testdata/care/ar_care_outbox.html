@@ -1,0 +1,35 @@
+<!-- A cut-down messages.php?box=Outbox for tests/care_packages.test.ash.
+     Hand-built to reproduce the exact shapes served by the live page, with
+     invented names and sequential ids so no clan member's details are kept.
+     The password hash is replaced with PWDHASH.
+
+     What each message pins:
+       sel1001  a MARKED plain send -- the ordinary care package. Counts.
+       sel1002  an UNMARKED conversation to somebody else. Must NOT count, and
+                this is the point of the marker: a real Outbox is mostly this.
+       sel1003  a MARKED gift's covering message, and
+       sel1004  the same gift's package row, at the same timestamp, showing the
+                WRAPPER rather than the contents plus an "Inside note:" block.
+                A gift writes two rows; the recipient must be counted once.
+       sel1005  a marked send to a recipient whose name CONTAINS A COMMA, which
+                58 KoL monster names and plenty of player names do.
+       sel1006  a marked message in the other direction (From, not To). A saved
+                box holds both, and only what was sent counts.
+
+     The header is the "(N messages)" form, which is what per_page=10 returns
+     and which tells careAlreadySent() there is nothing further to page to. -->
+<html><head><title>Messages</title></head><body>
+<table><tr><td>
+Messages: Outbox, page 1 (6 messages)
+<table><tr><td class=small>Mailbox: <a href='messages.php?box=Inbox'>[Inbox]</a> &nbsp;<b>[Outbox]</b> &nbsp;<a href='messages.php?box=Saved'>[Saved]</a></td></tr></table>
+<p>Note: Messages in this mailbox will be deleted after two weeks.
+<form name=messageform method=post action=messages.php><input type=hidden name=the_action value=""><input type=hidden name=pwd value="PWDHASH"><input type=hidden name=box value="Outbox">
+<tr><td valign=top><input type=checkbox name="sel1001"></td><td class=small><b>To</b> <a href="showplayer.php?who=101">Ordinary Member</a> (#101)&nbsp;[<a href="sendmessage.php?toid=101&replyid=1001">reply</a>]&nbsp;<br><b>Date:</b> Sunday, November 08, 2026, 06:00PM</b><br><blockquote>A care package from your clan. Enjoy!<br /> <br /> [care package]<center><table class="item" style="float: none"><tr><td><img src="/images/itemimages/sodawater.gif"></td><td valign=center class=effect>You acquire an item: <b>soda water</b></td></tr></table></center></blockquote></td></tr>
+<tr><td valign=top><input type=checkbox name="sel1002"></td><td class=small><b>To</b> <a href="showplayer.php?who=103">Fond Of Hearts</a> (#103)&nbsp;[<a href="sendmessage.php?toid=103&replyid=1002">reply</a>]&nbsp;<br><b>Date:</b> Sunday, November 08, 2026, 06:10PM</b><br><blockquote>thanks for the help the other day, much appreciated</blockquote></td></tr>
+<tr><td valign=top><input type=checkbox name="sel1003"></td><td class=small><b>To</b> <a href="showplayer.php?who=105">In Hardcore</a> (#105)&nbsp;[<a href="sendmessage.php?toid=105&replyid=1003">reply</a>]&nbsp;<br><b>Date:</b> Sunday, November 08, 2026, 06:26PM</b><br><blockquote>A care package from your clan. Enjoy!<br /> <br /> [care package]</blockquote></td></tr>
+<tr><td valign=top><input type=checkbox name="sel1004"></td><td class=small><b>To</b> <a href="showplayer.php?who=105">In Hardcore</a> (#105)&nbsp;[<a href="sendmessage.php?toid=105&replyid=1004">reply</a>]&nbsp;<br><b>Date:</b> Sunday, November 08, 2026, 06:26PM</b><br><blockquote>A care package from your clan. Enjoy!<br /> <br /> [care package]<center><table class="item" style="float: none"><tr><td><img src="/images/itemimages/plainbrown.gif"></td><td valign=center class=effect>You acquire an item: <b>plain brown wrapper</b></td></tr></table></center><p>Inside note:<br>A care package from your clan. Enjoy!<br /> <br /> [care package]</blockquote></td></tr>
+<tr><td valign=top><input type=checkbox name="sel1005"></td><td class=small><b>To</b> <a href="showplayer.php?who=106">Brutus, the toga-clad lout</a> (#106)&nbsp;[<a href="sendmessage.php?toid=106&replyid=1005">reply</a>]&nbsp;<br><b>Date:</b> Sunday, November 08, 2026, 06:30PM</b><br><blockquote>A care package from your clan. Enjoy!<br /> <br /> [care package]</blockquote></td></tr>
+<tr><td valign=top><input type=checkbox name="sel1006"></td><td class=small><b>From</b> <a href="showplayer.php?who=107">Someone Else</a> (#107)&nbsp;[<a href="sendmessage.php?toid=107&replyid=1006">reply</a>]&nbsp;<br><b>Date:</b> Sunday, November 08, 2026, 06:40PM</b><br><blockquote>here is a [care package] for you too</blockquote></td></tr>
+</form></table>
+</td></tr></table>
+</body></html>

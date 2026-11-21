@@ -1,0 +1,21 @@
+<!-- A cut-down showplayer.php for tests/care_packages.test.ash. Only the stats
+     table is kept, with an invented name and id, so no player's details are
+     kept. There is no password hash on this page.
+
+     What it pins: the Last Login row's exact shape. Account Created sits
+     immediately above it and has the same markup, so a pattern that is not
+     anchored on the label reads the wrong date -- which would make every
+     member look like they last logged in the year they joined. -->
+<html><head><title>Profile</title></head><body>
+<table><tr><td>
+<b>Ordinary Member</b> (#101)
+<table>
+<tr><td align=right><b>Ascensions</b>:</td><td>12</td></tr>
+<tr><td align=right><b>Turns Played (total):</b></td><td>342,999</td></tr>
+<tr><td align=right><b>Turns Played (this run):</b></td><td>366</td></tr>
+<tr><td align=right><b>Account Created:</b></td><td>October 05, 2005</td></tr>
+<tr><td align=right><b>Last Login:</b></td><td>November 08, 2026</td></tr>
+<tr><td align=right><b>Favorite Cheese:</b></td><td>Feta</td></tr>
+</table>
+</td></tr></table>
+</body></html>
