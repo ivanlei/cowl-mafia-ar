@@ -330,6 +330,37 @@ ok('a run of skips is what counts, and the loop clears it on any answer',
 ok('a batch is narrowed even when the run of skips is long',
 	care.careSendAfterFailure(3, 1, 4).act, 'isolate');
 
+/* ---- careSendGiveUpOn: a recipient KoL will not take at all ---- */
+
+// A clanmate who has you on their ignore list cannot be sent a kmail or a
+// gift, and nothing but a send can find that out. The send that finds it out
+// aborts the endpoint and comes back as a 404, so without this the whole of
+// careSendAfterFailure's narrowing and backing off is spent relearning it --
+// three quarters of a minute, every run, for somebody who cannot be sent to.
+//
+// TWO AND NOT ONE, because a request can die for reasons that have nothing to
+// do with whoever it happened to be sending to at the time.
+var strikes = {};
+ok('one failure is not enough to write somebody off',
+	care.careSendGiveUpOn(strikes, 7000001), false);
+ok('the second is', care.careSendGiveUpOn(strikes, 7000001), true);
+
+// Counted per recipient, since the whole point is telling one unsendable
+// clanmate apart from a bad minute.
+var two = {};
+care.careSendGiveUpOn(two, 111);
+ok('somebody else starts from nothing', care.careSendGiveUpOn(two, 222), false);
+ok('and their own second one counts', care.careSendGiveUpOn(two, 222), true);
+ok('without disturbing the first', two[111], 1);
+
+// AND ONLY FOR THE RUN. The tally is handed in rather than kept here, so a
+// new run starts with a fresh one and tries everybody who is ticked --
+// COwliCK's call, 2026-11-21: "forget", and "attempt the send to anybody who
+// is ticked". A kept list would quietly stop being true the day somebody took
+// him off their ignore list, and could never find out, having stopped trying.
+ok('a fresh run has no memory of them',
+	care.careSendGiveUpOn({}, 7000001), false);
+
 if (failures > 0) {
 	console.log(failures + ' failure(s)');
 	process.exit(1);

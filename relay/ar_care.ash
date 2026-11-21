@@ -98,6 +98,36 @@ string CARE_HOLD    = "arCareHoldDays";
 string CARE_BATCH   = "arCareScanBatch";
 string CARE_PAUSE   = "arCareScanPause";
 
+// WHO A SEND WAS IN THE MIDDLE OF, and the only thing an aborted request can
+// still say about itself.
+//
+// A clanmate who has you on their ignore list cannot be sent a kmail or a
+// gift, and nothing but a send can find that out: their profile is ordinary,
+// KoL's own compose and gift forms open for them as usual, and ASH has no
+// function that asks. The refusal arrives as an error state, which aborts the
+// relay script before it has written a byte, which KoLmafia serves as a bare
+// 404 -- indistinguishable, from the browser, from KoLmafia having gone away.
+// So the browser did the right thing for an outage and the wrong thing here:
+// narrowed the batch, waited 2s, 10s and 30s, and only then set the person
+// aside. COwliCK, 2026-11-21: "i think it's trying to send to [a clanmate]
+// who has me blocked in game. it's getting very stuck there." The name is
+// redacted here and everywhere below: whose ignore list somebody is on is
+// their business, and this repository is public.
+//
+// This is set immediately before each send and cleared immediately after, so
+// an abort leaves it naming the recipient it died on -- measured rather than
+// assumed: a relay script that sets a preference and then aborts leaves it
+// set, and the statement after the abort does not run. The next request reads
+// it, reports it, and clears it.
+//
+// A CRUMB AND NOT A RECORD. It is cleared the moment it is read, and nothing
+// is written down about anybody: COwliCK's call, asked before it was built,
+// was to forget at the end of a run rather than keep a list of people to stop
+// trying. A list would cost a few seconds a run and quietly stop being true
+// the day somebody took you off their ignore list -- and it could never find
+// that out, since it would never try again.
+string CARE_TRYING  = "arCareTrying";
+
 int CARE_DAYS_FALLBACK = 14;
 
 // HOW LONG A SCAN IS KEPT, and the one thing that distinguishes this page from

@@ -228,6 +228,36 @@
 	var SEND_BACKOFF_MS = [2000, 10000, 30000];
 	var SEND_TRIES = SEND_BACKOFF_MS.length + 1;
 
+	// HOW MANY FAILURES ARE PINNED ON ONE RECIPIENT before the run stops
+	// trying them, and it is not the same question as the batch's backoff
+	// above: this one is about somebody KoL will not take a package for at
+	// all, which on COwliCK's clan means a clanmate who has him on their
+	// ignore list. Nothing but a send can detect that -- the profile is
+	// ordinary and KoL's own forms open as usual -- and the send that detects
+	// it costs an aborted request and a 404, so the whole of the narrowing
+	// and backing off above gets spent learning it: three quarters of a
+	// minute, for somebody who cannot be sent to at all.
+	//
+	// The endpoint reports who the last request died on (CARE_TRYING,
+	// ar_care.ash) and this counts them. Two and not one, because a request
+	// can die for reasons that have nothing to do with the recipient, and one
+	// bad minute should not write a clanmate off for the rest of the run.
+	//
+	// AND ONLY FOR THE RUN. Nothing is remembered afterwards -- COwliCK's
+	// call, 2026-11-21, asked before it was built: "forget". A kept list would
+	// save a few seconds a run and quietly stop being true the day somebody
+	// took him off their ignore list, which it could never discover, having
+	// stopped trying. So every run tries everybody who is ticked.
+	var SEND_DIED_STRIKES = 2;
+
+	// One more failure pinned on one recipient. True when that is enough to
+	// stop trying them for the rest of this run.
+	function careSendGiveUpOn(strikes, who) {
+		var n = (strikes[who] || 0) + 1;
+		strikes[who] = n;
+		return n >= SEND_DIED_STRIKES;
+	}
+
 	// How many recipients in a row may be set aside before this is treated as
 	// something other than a handful of awkward clanmates. Five failures each
 	// fought for about three quarters of a minute is a couple of minutes of
@@ -345,10 +375,12 @@
 			careSendLabel: careSendLabel,
 			careSendTally: careSendTally,
 			careSendAfterFailure: careSendAfterFailure,
+			careSendGiveUpOn: careSendGiveUpOn,
 			careSendLine: careSendLine,
 			PROFILE_MS: PROFILE_MS,
 			SEND_TRIES: SEND_TRIES,
 			SEND_GIVE_UP: SEND_GIVE_UP,
+			SEND_DIED_STRIKES: SEND_DIED_STRIKES,
 			SEND_BACKOFF_MS: SEND_BACKOFF_MS
 		};
 		return;
@@ -867,10 +899,32 @@
 			// A request that came back is the end of whatever run of trouble
 			// there was, however many were set aside getting here.
 			run.skips = 0;
+
 			// THE SERVER SAYS WHO IT DEALT WITH, and the queue drops exactly
 			// those. Dropping `take` instead would skip anybody the server
 			// did not get to -- it stops at its own batch size, not ours.
 			queue = queue.slice(got.length || take.length);
+
+			// WHO THE LAST REQUEST DIED ON, if it died on anybody. The
+			// endpoint can only say this on the request AFTER the one that
+			// aborted, since the one that aborted never got to say anything
+			// -- so it arrives attached to somebody else's answer and names a
+			// recipient who is still somewhere further down the queue.
+			//
+			// AFTER THE SLICE, and only for somebody still in the queue: the
+			// one case where this answer could itself have dealt with them is
+			// a send that died once and worked the next time, and dropping
+			// them then would take an innocent recipient out of the queue
+			// along with them.
+			if (answer.died > 0 && careSendGiveUpOn(run.died, answer.died)) {
+				var at = queue.indexOf(String(answer.died));
+				if (at >= 0) {
+					queue.splice(at, 1);
+					run.failed++;
+					run.names.push(careSendWho(answer.died)
+						+ ' (KoL would not take one for them)');
+				}
+			}
 			tell(run, queue.length, '', 0, 0, '');
 			if (sendButton) sendButton.textContent = 'Sending… ' + queue.length + ' to go';
 			window.setTimeout(function () { sendBatch(queue, run, 1); }, 400);
@@ -882,6 +936,29 @@
 			// stopping anything, since the batch above had already queued the
 			// next one. See ar_ask.js.
 			if (ok) return;
+
+			// A REQUEST THAT NAMED ONE PERSON AND DIED NAMES THEM BY DYING.
+			// The crumb the endpoint leaves (CARE_TRYING) can only be read by
+			// the NEXT request, so a blocked recipient at the end of a queue
+			// would never be reported -- every request from there on dies on
+			// them, and none of them gets to say so. Then the whole backoff
+			// is spent before they are set aside: measured at 42 seconds with
+			// one recipient left.
+			//
+			// But an isolated request asked about exactly one person, so a
+			// failure is about them or about KoLmafia, and the second strike
+			// is what tells those apart. A genuine outage still stops the run
+			// through SEND_GIVE_UP, which counts recipients set aside in a
+			// row.
+			if (take.length === 1 && careSendGiveUpOn(run.died, take[0])) {
+				run.failed++;
+				run.names.push(careSendWho(take[0])
+					+ ' (KoL would not take one for them)');
+				queue = queue.slice(1);
+				tell(run, queue.length, '', 0, 0, '');
+				window.setTimeout(function () { sendBatch(queue, run, 1); }, 400);
+				return;
+			}
 
 			var next = careSendAfterFailure(take.length, attempt, run.skips);
 
@@ -951,11 +1028,47 @@
 			left: queue.length, why: why, phase: phase
 		});
 		sendSay(said.text, said.kind);
+
+		// NAMED ON THE PAGE AND NOT ONLY IN A LINE THAT IS ABOUT TO BE
+		// REDRAWN AWAY. COwliCK, 2026-11-21: "name the failures on the page."
+		// Every clean ending reloads, so without this the one thing worth
+		// keeping -- who could not be sent to, and why -- is the one thing
+		// that does not survive. Held in sessionStorage because it is a
+		// message rather than a record: it belongs to this tab, nothing reads
+		// it back but the line below, and it does not outlive the browser.
+		if (run.names.length) {
+			try {
+				// Without the "Redrawing…" it ends on: that was true of the
+				// moment it was written and is a lie by the time it is read
+				// back, the redraw having been what brought it here.
+				window.sessionStorage.setItem('careLastRun',
+					said.text.replace(/\s*Redrawing…\s*$/, ''));
+			} catch (e) { /* private window, or storage turned off */ }
+		}
+	}
+
+	// The last run's report, put back after its reload. Cleared when the next
+	// send starts rather than when it is shown, so a page reloaded by hand
+	// still says what happened.
+	function showLastRun() {
+		if (!sendSaid) return;
+		var last = null;
+		try {
+			last = window.sessionStorage.getItem('careLastRun');
+		} catch (e) { return; }
+		if (last) sendSay(last, 'err');
+	}
+
+	function forgetLastRun() {
+		try {
+			window.sessionStorage.removeItem('careLastRun');
+		} catch (e) { /* nothing to forget, then */ }
 	}
 
 	function beginSend() {
 		var queue = tickedWho();
 		if (!queue.length) return;
+		forgetLastRun();
 		sending = true;
 		stoppedSending = false;
 		disarm();
@@ -964,7 +1077,7 @@
 		sendButton.textContent = 'Sending… ' + queue.length + ' to go';
 		if (stopSendButton) stopSendButton.hidden = false;
 		sendSay('Sending…', 'busy');
-		sendBatch(queue, { went: 0, had: 0, failed: 0, names: [], skips: 0 }, 1);
+		sendBatch(queue, { went: 0, had: 0, failed: 0, names: [], skips: 0, died: {} }, 1);
 	}
 
 	function bindSend() {
@@ -1019,6 +1132,7 @@
 		}
 
 		paintSendButton();
+		showLastRun();
 	}
 
 	/* ---- the Send ticks ---- */
