@@ -691,6 +691,23 @@ void main() {
 	check("package: a quantity of zero is refused",
 		careBadValue(CARE_PACKAGE, "0 soda water") != "");
 
+	// WHICH ROW, because the package saves as a whole and one bad row
+	// refuses every good one with it. The first version said only "That is
+	// not an item", which reads as being about the row you just touched --
+	// a typo left in row one refused a good row two and pointed at it.
+	check("package: the refusal names the row, not the last one touched",
+		careBadValue(CARE_PACKAGE, "1 nonsense widget of nope, 1 soda water")
+			.contains_text("Item 1"));
+	check("package: and counts from the first",
+		careBadValue(CARE_PACKAGE, "1 soda water, 1 nonsense widget of nope")
+			.contains_text("Item 2"));
+	check("package: a bad quantity says which one too",
+		careBadValue(CARE_PACKAGE, "1 soda water, 0 spices").contains_text("Item 2"));
+	// Still never repeats back what was sent.
+	check("package: and never echoes the name back",
+		!careBadValue(CARE_PACKAGE, "1 nonsense widget of nope")
+			.contains_text("nonsense"));
+
 	// A bound item cannot leave however it is packed, so offering to send one
 	// is offering a refusal. The Package box does not even suggest them.
 	item bound = $item[Boris's key];

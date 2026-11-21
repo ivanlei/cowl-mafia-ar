@@ -125,13 +125,16 @@ in the repository and no form on the page. That half comes later.
 which fold when you tap the bar. Every control on them saves itself as you
 change it; there is no Save button anywhere.
 
-**Package is KoL's own kmail form.** A quantity and an item per row, the item
-box narrowing as you type, `+ add another` for the next one, a Send Meat box
-and the note that goes with the package. Clearing a row's item name takes it
-out again. The suggestions are the giftable items the places you allow
-actually hold — but they only suggest, so you can name something you mean to
-buy before you send, and it is checked against the real item database either
-way.
+**Package is shaped like KoL's own kmail form**: a two-character quantity, the
+item beside it, a bold `+` to add another row, a Send Meat box and the note as
+a message box. Clearing a row's item name takes it out again.
+
+The item box lists what matches **underneath itself** rather than off to one
+side, which is what a native `<datalist>` does in Safari. It suggests the
+giftable items the places you allow actually hold, with how many you have, the
+way KoL's own dropdown does — but it only suggests, so you can name something
+you mean to buy before you send, and it is checked against the real item
+database either way.
 
 **Config is who gets one**: how recently counts as active, which places a
 package may be packed from, and the clan ranks to skip. The ranks are a

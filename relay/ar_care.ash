@@ -509,12 +509,20 @@ string careBadValue(string name, string value) {
 		care_part [int] parts = carePackageParts(value);
 		if (count(parts) == 0) return "Name an item, or leave it empty.";
 
+		// NUMBERED, BECAUSE THE PACKAGE SAVES AS A WHOLE. A bad row blocks
+		// every other row from saving, and the first version of these said
+		// only "That is not an item." -- which reads as being about the row
+		// you just touched. Caught within a minute of using it: a typo left
+		// in row one refused a perfectly good row two, and the message
+		// pointed at the wrong one.
+		//
+		// The position, not the value: a refusal here still never repeats
+		// back what was sent, which is the contract every other one keeps.
 		foreach i, p in parts {
-			if (p.qty < 1) return "Send at least one of each item.";
-			// Never echoes the name back, the same contract every other
-			// refusal here keeps -- the page knows which row it just changed.
-			if (p.what == $item[none]) return "That is not an item.";
-			if (!p.what.is_giftable()) return "That cannot be sent to anyone.";
+			string which = "Item " + (i + 1);
+			if (p.qty < 1) return which + " needs a quantity of at least one.";
+			if (p.what == $item[none]) return which + " is not one KoL knows.";
+			if (!p.what.is_giftable()) return which + " cannot be sent to anyone.";
 		}
 
 		// REFUSED HERE AS WELL AS REPORTED BY carePackageProblems(), which is

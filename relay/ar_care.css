@@ -134,8 +134,20 @@ a {
  * THE ITEM BOX TAKES WHAT IS LEFT, which is what makes a column of them line
  * up: the quantity is three digits wide for ever and the names are not, so
  * the item box flexes and the pair keep their edges down the box. */
+/* The stack of rows with KoL's + beside it, level with the first one.
+ *
+ * `min-width: 0` on the stack is what lets the combo inside it actually
+ * flex: without it a flex item will not shrink below its content's own
+ * minimum, and the row stayed as narrow as the longest item name. */
+.care-sendbox {
+	align-items: flex-start;
+	display: flex;
+}
+
 .care-rows {
-	margin-bottom: 6px;
+	flex: 1 1 auto;
+	max-width: 28em;
+	min-width: 0;
 }
 
 .care-row {
@@ -145,27 +157,55 @@ a {
 	margin-bottom: 4px;
 }
 
-.care-row .care-item {
-	flex: 1 1 auto;
-	max-width: 28em;
-}
-
-/* Plain and quiet: this adds an empty row, which is the smallest thing on the
- * page that happens. A button shaped like the look-up would claim far more. */
-.care-plus {
-	background: none;
-	border: none;
-	color: var(--care-link);
-	cursor: pointer;
+/* THE QUANTITY IS TWO CHARACTERS, the way KoL's is (`size=2`). A number input
+ * was the obvious choice and the wrong one: its spinner arrows take as much
+ * width again, and no two browsers draw them the same, so a column of them
+ * was the one part of this box that looked like a form and not like KoL. */
+.care-qty {
+	background: var(--care-page);
+	border: 1px solid var(--care-rule);
+	border-radius: 3px;
+	color: var(--care-ink);
 	font: inherit;
 	min-height: 26px;
-	padding: 2px 0;
-	text-align: left;
+	padding: 2px 6px;
+	text-align: right;
+	width: 3.5em;
 }
 
-.care-plus:disabled {
-	color: var(--care-quiet);
-	cursor: default;
+/* The combo takes the rest of the row, and its list -- positioned against
+ * this -- comes out the same width. */
+.care-combo {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* KoL'S PLUS: a bold link at the end of the first row, not a button under
+ * them. Sized up a little, like KoL's `<font size=+1>`, because a single
+ * character is a small thing to aim at. */
+.care-plus {
+	display: inline-block;
+	font-size: 16px;
+	line-height: 1;
+	margin-left: 8px;
+	padding: 4px 8px;
+	text-decoration: none;
+	vertical-align: top;
+}
+
+/* The note, which is kmail's Message box: the same width as an item row's
+ * combo so the box reads as one column of controls, and resizable downwards
+ * only -- sideways would take it out past the section border. */
+.care-note-box {
+	background: var(--care-page);
+	border: 1px solid var(--care-rule);
+	border-radius: 3px;
+	color: var(--care-ink);
+	font: inherit;
+	max-width: 28em;
+	padding: 4px 6px;
+	resize: vertical;
+	width: 100%;
 }
 
 /* WHAT A CONTROL JUST SAID, under the box it belongs to -- there are two of

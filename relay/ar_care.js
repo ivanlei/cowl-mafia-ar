@@ -149,6 +149,7 @@
 
 	var scanButton, stopButton, progress, said, configSaid, packageSaid, tickedLine;
 	var ask, saveInConfig, saveInPackage;
+	var heldItems = [];
 	var running = false;
 	var stopped = false;
 	var startedAt = 0;
@@ -453,6 +454,14 @@
 		var item = row.querySelector('.care-item');
 		if (!qty || !item) return;
 
+		// The box's list, drawn under it. A half-install leaves the row a
+		// plain text field that still works -- you can type a name and it is
+		// still checked -- which is the right way for a suggestion list to
+		// be missing.
+		if (window.arCombo) {
+			window.arCombo.attach(item, function () { return heldItems; });
+		}
+
 		// A QUANTITY ALONE SAVES NOTHING. Typing 3 into an empty row and
 		// tabbing out is halfway through naming an item, not a change to the
 		// package -- saving there would reload the page out from under you
@@ -469,7 +478,9 @@
 
 		var add = document.getElementById('care-add-row');
 		if (add) {
-			add.onclick = function () {
+			add.onclick = function (event) {
+				// A link, the way KoL's + is, so it needs the href stopped.
+				event.preventDefault();
 				var all = document.querySelectorAll('#care-rows .care-row');
 				if (!all.length) return;
 				// CLONED FROM THE LAST ROW rather than built here, so there is
@@ -479,6 +490,12 @@
 				var fresh = all[all.length - 1].cloneNode(true);
 				fresh.querySelector('.care-qty').value = '1';
 				fresh.querySelector('.care-item').value = '';
+				// The clone carries a copy of the last row's suggestion list,
+				// markup and all. arCombo.attach throws its own away and
+				// builds a fresh one, but the clone must not be inserted
+				// holding two.
+				var stale = fresh.querySelector('.ar-combo-list');
+				if (stale) stale.parentNode.removeChild(stale);
 				document.getElementById('care-rows').appendChild(fresh);
 				bindRow(fresh);
 				fresh.querySelector('.care-item').focus();
@@ -515,26 +532,20 @@
 		}
 	}
 
-	// The suggestions, fetched once and only if the box is there.
+	// The suggestions, fetched once, after the page has drawn.
 	//
-	// AFTER THE PAGE HAS DRAWN, not written into it. On this character the
-	// list is about two thousand items; as <option> tags in the served page
-	// that is a third of its weight, paid on every load, for something the
-	// browser needs only when the box is focused.
+	// NOT WRITTEN INTO THE PAGE. On this character the list is about two
+	// thousand items; served as markup that is a third of the page's weight,
+	// paid on every load, for something nothing needs until a box is focused.
+	//
+	// Held in one array that every row's box reads through a closure, so the
+	// rows share the one copy and a row added later gets the list without
+	// asking for it again.
 	function loadItems() {
-		var list = document.getElementById('care-items');
-		if (!list) return;
+		if (!document.getElementById('care-rows')) return;
 		ask('/ar_care_items.ash', { have: 1 }, function (answer) {
-			var held = answer.held || [];
-			held.sort(function (a, b) {
+			heldItems = (answer.held || []).sort(function (a, b) {
 				return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-			}).forEach(function (it) {
-				var option = document.createElement('option');
-				// The bare name, because in a datalist the value is what
-				// lands in the box when you pick it -- anything else and you
-				// would be typing over "soda water -- 12 held" to correct it.
-				option.value = it.name;
-				list.appendChild(option);
 			});
 		}, null);
 	}

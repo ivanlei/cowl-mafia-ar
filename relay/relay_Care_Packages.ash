@@ -74,14 +74,26 @@ string careSnapshotAgeText() {
 // ar_care.js clone a row without knowing anything about how one is built: the
 // + copies the last one and clears it. An empty row is one whose item box is
 // empty, here and in the JS, and that is also how a row is deleted.
+// SHAPED LIKE KoL'S OWN ROW, which is `<b>Send: <input size=2 value=1></b>
+// <select>` with a bold + after it. The quantity is two characters wide
+// because KoL's is, and because a package of more than ninety-nine of
+// anything is not a thing anybody is typing by accident.
+//
+// NOT A <select>, though, and not the <datalist> this had first: the list has
+// to sit under the box (COwliCK, 2026-11-21) and you have to be able to name
+// an item you do not hold yet. ar_combo.js does both; the wrapper below is
+// what it hangs the list off, and it has to be in the markup rather than
+// made by the script so that cloning a row clones a whole control.
 void careItemRow(buffer out, int qty, string named) {
 	out.append("<div class='care-row'>");
-	out.append("<input class='care-qty care-number' type='number' min='1' step='1'"
-		+ " value=" + careAttr(qty + "") + ">");
-	out.append("<input class='care-item care-text' type='text' list='care-items'"
+	out.append("<input class='care-qty' type='text' inputmode='numeric'"
+		+ " size='2' value=" + careAttr(qty + "") + ">");
+	out.append("<span class='ar-combo care-combo'>");
+	out.append("<input class='care-item care-text' type='text'"
 		+ " autocomplete='off' spellcheck='false'"
 		+ " placeholder='type to find an item'"
 		+ " value=" + careAttr(named) + ">");
+	out.append("</span>");
 	out.append("</div>");
 }
 
@@ -185,6 +197,7 @@ void main() {
 	// and dark live in them, the same way the anti-raffle page does it. The
 	// section box first, so a rule of this page's can override one of its.
 	out.append(arStyle("ar_box.css"));
+	out.append(arStyle("ar_combo.css"));
 	out.append(arStyle("ar_care.css"));
 	// The hash ar_care_scan.ash checks, the same way relay_Anti_Raffle.ash does
 	// it: without it a page cannot ask KoLmafia for anything.
@@ -269,28 +282,31 @@ void main() {
 	// exactly the items that are set and one more blank.
 	out.append(arBoxStart("Package"));
 
+	// LAID OUT LIKE kmail: a label column with the controls beside it, the
+	// rows stacked under the one "Send" the way KoL stacks its eleven under
+	// its one, and the + a bold link at the end of the first row rather than
+	// a button of its own below them.
+	out.append("<table class='care-setup'>");
+
+	out.append("<tr><td class='care-label'>Send</td><td>");
+	out.append("<div class='care-sendbox'>");
 	out.append("<div id='care-rows' class='care-rows'>");
 	care_part [int] parts = carePackageParts(carePackage());
 	foreach i, p in parts {
 		careItemRow(out, p.qty, p.what == $item[none] ? p.named : p.what.to_string());
 	}
 	careItemRow(out, 1, "");
-	out.append("</div>\n");
+	out.append("</div>");
+	// Beside the stack rather than under it, level with the first row, which
+	// is where KoL puts its own.
+	out.append("<a id='care-add-row' class='care-plus' href='#'"
+		+ " title='another item'><b>+</b></a>");
+	out.append("</div>");
+	out.append("</td></tr>");
 
-	// The suggestions, filled by ar_care.js from ar_care_items.ash. Empty in
-	// the served page on purpose: it is a couple of thousand <option> tags on
-	// this character, which is a third of the page's weight for something the
-	// browser only needs once the box is focused.
-	out.append("<datalist id='care-items'></datalist>\n");
-
-	out.append("<div class='care-row'>");
-	out.append("<button id='care-add-row' type='button' class='care-plus'>+ add another</button>");
-	out.append("</div>\n");
-
-	out.append("<table class='care-setup'>");
 	out.append("<tr><td class='care-label'>Send Meat</td><td>");
-	out.append("<input id='care-meat' class='care-number' type='number' min='0'"
-		+ " step='1' value=" + careAttr(careMeat() + "") + ">");
+	out.append("<input id='care-meat' class='care-qty' type='text'"
+		+ " inputmode='numeric' size='7' value=" + careAttr(careMeat() + "") + ">");
 	out.append("</td></tr>");
 
 	// THE EFFECTIVE NOTE, not the raw preference: careNote() answers the
@@ -298,9 +314,15 @@ void main() {
 	// kmail will not be is a box that lies about what is going to be sent.
 	// Clearing it is still how you get the default back -- careBadValue()
 	// allows an empty value for exactly that.
+	//
+	// A TEXTAREA, because kmail's Message is one and this is the same thing:
+	// the words that arrive with the package. Three rows rather than ten --
+	// a note is a sentence, not a letter -- and it grows if you write more.
 	out.append("<tr><td class='care-label'>Package Note</td><td>");
-	out.append("<input id='care-note-text' class='care-text' type='text'"
-		+ " value=" + careAttr(careNote()) + ">");
+	out.append("<textarea id='care-note-text' class='care-note-box' rows='3'"
+		+ " spellcheck='true'>");
+	out.append(careHtml(careNote()));
+	out.append("</textarea>");
 	out.append("</td></tr>");
 	out.append("</table>\n");
 
@@ -493,6 +515,7 @@ void main() {
 	// its header used to say "a page with no controls needs no script to work",
 	// which was true of it and no longer is.
 	out.append(arScript("ar_ask.js"));
+	out.append(arScript("ar_combo.js"));
 	out.append(arScript("ar_care.js"));
 	out.append("</body>\n</html>\n");
 	out.write();

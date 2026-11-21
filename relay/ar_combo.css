@@ -1,0 +1,81 @@
+/* ar_combo.css -- the look of ar_combo.js's boxes. See that file for why the
+ * native <datalist> was not enough: in WebKit it draws a chevron inside the
+ * right edge of the field and opens from there, and the list wanted to be
+ * under the box.
+ *
+ * Self-contained, like the two stylesheets beside it: a page here is served
+ * on its own and inherits none of KoL's, so every colour has to be declared
+ * somewhere this file can see. */
+:root {
+	color-scheme: light dark;
+
+	--ar-combo-face:  light-dark(#fff, #11151b);
+	--ar-combo-ink:   light-dark(#000, #d6d9dd);
+	--ar-combo-quiet: light-dark(#595959, #8b929b);
+	--ar-combo-rule:  light-dark(#ccc, #434a53);
+	--ar-combo-on:    light-dark(#dce9ff, #27405f);
+}
+
+/* The anchor the list is positioned against. inline-flex so a row can hand it
+ * the width and the box fills it. */
+.ar-combo {
+	display: inline-flex;
+	position: relative;
+}
+
+.ar-combo > input {
+	width: 100%;
+}
+
+/* OVER THE PAGE, NOT IN IT. A list that pushed the rows below it down would
+ * move the control you were about to reach for, on every keystroke.
+ *
+ * `top: 100%` is the whole of what was asked for: directly under the box it
+ * belongs to, its full width, rather than hanging off the side of it. */
+.ar-combo-list {
+	background: var(--ar-combo-face);
+	border: 1px solid var(--ar-combo-rule);
+	border-radius: 0 0 3px 3px;
+	border-top: none;
+	box-shadow: 0 4px 10px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.6));
+	color: var(--ar-combo-ink);
+	left: 0;
+	/* About ten rows. Enough to scan, short enough that the list does not
+	 * cover the controls underneath it on a phone. */
+	max-height: 17em;
+	overflow-y: auto;
+	position: absolute;
+	right: 0;
+	top: 100%;
+	z-index: 50;
+}
+
+.ar-combo-item {
+	cursor: pointer;
+	display: flex;
+	gap: 8px;
+	justify-content: space-between;
+	/* Tall enough to hit with a thumb: this is read on an iPad, and a 13px
+	 * line of text is not a target. */
+	padding: 5px 8px;
+}
+
+.ar-combo-on {
+	background: var(--ar-combo-on);
+}
+
+/* How many you hold, the way KoL's own select writes it: "11-leaf clover
+ * (231)". Tabular figures so the column does not shuffle as you scroll. */
+.ar-combo-have {
+	color: var(--ar-combo-quiet);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+/* "Nothing you hold matches", and the count of what the cap left out. Not
+ * pickable, so it does not get the pointer or the hover. */
+.ar-combo-none {
+	color: var(--ar-combo-quiet);
+	font-style: italic;
+	padding: 5px 8px;
+}
